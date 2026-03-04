@@ -27,6 +27,7 @@ OpenClaw Gateway (:18789)     ← AI 分身 "Kite"，全权代理，调度开发
 | Python 3.10+ | 豆包 STT 代理 | `brew install python3` |
 | Cursor IDE | 代码执行 Agent | [cursor.com](https://www.cursor.com/) |
 | Git | 版本管理 | `brew install git` |
+| cloudflared | 移动端 HTTPS 隧道 | `brew install cloudflared`（可选） |
 
 ## 需要准备的账号和凭据
 
@@ -87,16 +88,66 @@ openclaw onboard
 
 浏览器打开 `http://localhost:3000`，直接在 OpenCami 中与 Kite 对话。
 
-### 移动端
+### 移动端（跨网络）
 
-同一局域网下，手机浏览器打开 `http://<局域网IP>:3000`。
+启动后终端会输出一个 HTTPS 链接（由 Cloudflare Tunnel 提供）：
+
+```
+📱 移动端:  https://xxx-xxx.trycloudflare.com
+            (HTTPS, 跨网络, 支持语音)
+```
+
+手机浏览器打开该链接即可，不限局域网、不需要 VPN、不影响手机代理。
 可添加到主屏幕（OpenCami 支持 PWA）。
 
-> 注意：HTTP 下移动端浏览器无法使用麦克风。语音输入需要 HTTPS，可通过反向代理或 Tailscale 实现。
+> Tunnel URL 每次重启会变化。如需固定域名，可注册 Cloudflare 账号并绑定自有域名。
+
+### 虚拟手机（Android 模拟器）
+
+无需真机，在电脑上启动虚拟手机测试移动端体验：
+
+```bash
+# 首次安装（约 1GB 下载）
+brew install --cask android-commandlinetools
+sdkmanager "system-images;android-35;google_apis;arm64-v8a" "platform-tools" "emulator"
+avdmanager create avd -n devkit -k "system-images;android-35;google_apis;arm64-v8a" -d pixel_7
+
+# 启动虚拟手机（自动打开 OpenCami）
+./phone.sh start
+
+# 关闭
+./phone.sh stop
+```
+
+### 自动化测试
+
+Playwright 移动端视口测试（iPhone / Pixel 模拟）：
+
+```bash
+.venv/bin/python -m pytest tests/mobile/test_opencami.py -v
+```
+
+语音端到端测试（TTS 合成 → STT 识别闭环）：
+
+```bash
+.venv/bin/python tests/mobile/test_voice_e2e.py
+```
 
 ### 语音输入
 
 OpenCami 设置中 STT Provider 选择 **OpenAI** 或 **Auto**，语音会通过豆包 BigModel ASR 识别。
+
+### 语音合成 (TTS)
+
+同一 DOUBAO_APPID/TOKEN 可同时用于 STT 和 TTS。可用音色：
+
+| voice_type | 名称 |
+|---|---|
+| `BV700_V2_streaming` | 灿灿（活力女声，推荐） |
+| `BV001_streaming` | 通用女声 |
+| `BV002_streaming` | 通用男声 |
+
+> BigModel 音色（`_bigtts` 后缀）需在火山引擎控制台单独购买音色授权。
 
 ## 项目结构
 
@@ -120,6 +171,13 @@ Devkit/
 │       ├── start.sh           #   独立启动脚本
 │       ├── transcribe.sh      #   CLI 转写工具
 │       └── requirements.txt
+├── docker/                   # Docker 相关
+│   ├── entrypoint.sh          #   容器启动脚本
+│   └── verify.sh              #   全链路验证脚本
+├── tests/mobile/             # 移动端自动化测试
+│   ├── test_opencami.py       #   Playwright 视口测试
+│   └── test_voice_e2e.py      #   TTS→STT 语音闭环测试
+├── phone.sh                  # 虚拟手机一键启动
 ├── .cursor/rules/            # Cursor Agent 行为规则
 ├── specs/                    # 需求 Spec 模板
 ├── .audit/                   # Cursor 调用审计日志
@@ -191,6 +249,4 @@ tail -f /tmp/opencami.log            # OpenCami
 
 **移动端无法使用麦克风**
 
-HTTP 协议下浏览器禁止麦克风访问。解决方案：
-1. 通过反向代理加 HTTPS 证书
-2. 使用 Tailscale + `tailscale serve` 提供 HTTPS
+HTTP 协议下浏览器禁止麦克风访问。使用 Cloudflare Tunnel 提供的 HTTPS 链接即可解决（已集成，`./start.sh` 启动后自动输出）。

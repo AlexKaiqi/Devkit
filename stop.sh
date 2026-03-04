@@ -11,4 +11,10 @@ for port in 3000 18789 8787; do
   fi
 done
 
+cf_pids=$(pgrep -f "cloudflared.*tunnel" 2>/dev/null || true)
+if [ -n "$cf_pids" ]; then
+  echo "$cf_pids" | xargs kill 2>/dev/null || true
+  echo "  ✓ 已停止 cloudflared"
+fi
+
 echo "done"

@@ -74,9 +74,33 @@ else
   wait_for_port "$CAMI_PORT" "OpenCami" 10
 fi
 
+# ── 4. Cloudflare Tunnel ─────────────────────
+
+TUNNEL_LOG="/tmp/cloudflared.log"
+
+if pgrep -f "cloudflared.*tunnel" &>/dev/null; then
+  echo "  ✓ Cloudflare Tunnel 已在运行"
+else
+  if command -v cloudflared &>/dev/null; then
+    echo "  启动 Cloudflare Tunnel..."
+    nohup cloudflared tunnel --url "http://localhost:$CAMI_PORT" --no-autoupdate \
+      > "$TUNNEL_LOG" 2>&1 &
+    sleep 5
+    TUNNEL_URL=$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' "$TUNNEL_LOG" 2>/dev/null | tail -1)
+    if [ -n "$TUNNEL_URL" ]; then
+      echo "  ✓ Cloudflare Tunnel"
+    else
+      echo "  ! Tunnel 启动中，稍后查看 $TUNNEL_LOG"
+    fi
+  else
+    echo "  - cloudflared 未安装，跳过 Tunnel（brew install cloudflared）"
+  fi
+fi
+
 # ── 状态 ─────────────────────────────────────
 
 LAN_IP=$(ifconfig 2>/dev/null | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | head -1)
+TUNNEL_URL=$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' "$TUNNEL_LOG" 2>/dev/null | tail -1)
 
 echo ""
 echo "=== 所有服务已启动 ==="
@@ -87,11 +111,17 @@ echo "  OpenCami:  http://localhost:$CAMI_PORT"
 if [ -n "$LAN_IP" ]; then
   echo "  局域网:    http://$LAN_IP:$CAMI_PORT"
 fi
+if [ -n "${TUNNEL_URL:-}" ]; then
+  echo ""
+  echo "  📱 移动端:  $TUNNEL_URL"
+  echo "             (HTTPS, 跨网络, 支持语音)"
+fi
 echo ""
 echo "  日志:"
 echo "    tail -f /tmp/doubao-stt-proxy.log"
 echo "    tail -f /tmp/openclaw-gateway.log"
 echo "    tail -f /tmp/opencami.log"
+echo "    tail -f /tmp/cloudflared.log"
 echo ""
 echo "  停止: ./stop.sh"
 echo ""

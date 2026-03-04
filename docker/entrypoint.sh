@@ -82,7 +82,8 @@ cat > "$OPENCLAW_HOME/openclaw.json" <<EOJSON
       "allowInsecureAuth": true,
       "allowedOrigins": [
         "http://localhost:${OPENCAMI_PORT:-3000}",
-        "http://127.0.0.1:${OPENCAMI_PORT:-3000}"
+        "http://127.0.0.1:${OPENCAMI_PORT:-3000}",
+        "https://*.trycloudflare.com"
       ]
     }
   },
@@ -147,6 +148,15 @@ stdout_logfile=/dev/fd/1
 stdout_logfile_maxbytes=0
 stderr_logfile=/dev/fd/2
 stderr_logfile_maxbytes=0
+
+[program:tunnel]
+command=cloudflared tunnel --url http://localhost:%(ENV_OPENCAMI_PORT)s --protocol http2 --no-autoupdate
+autorestart=true
+startsecs=5
+stdout_logfile=/tmp/cloudflared.log
+stdout_logfile_maxbytes=1048576
+stderr_logfile=/tmp/cloudflared.log
+stderr_logfile_maxbytes=1048576
 EOCONF
 
 cat > /app/docker/fix-scopes.sh <<'FIXSCOPE'
@@ -170,6 +180,26 @@ echo "[✗] OpenCami scope 修复超时"
 FIXSCOPE
 chmod +x /app/docker/fix-scopes.sh
 
+cat > /app/docker/show-tunnel-url.sh <<'TUNNELURL'
+#!/usr/bin/env bash
+sleep 10
+for i in $(seq 1 30); do
+  URL=$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' /tmp/cloudflared.log 2>/dev/null | tail -1)
+  if [ -n "$URL" ]; then
+    echo ""
+    echo "======================================="
+    echo "  移动端访问 (HTTPS, 跨网络):"
+    echo "  $URL"
+    echo "======================================="
+    echo ""
+    exit 0
+  fi
+  sleep 2
+done
+echo "[!] Tunnel URL 未检测到，检查 /tmp/cloudflared.log"
+TUNNELURL
+chmod +x /app/docker/show-tunnel-url.sh
+
 echo "[✓] supervisor 配置已生成"
 echo ""
 echo "======================================="
@@ -177,5 +207,6 @@ echo "  启动服务..."
 echo "======================================="
 
 /app/docker/fix-scopes.sh &
+/app/docker/show-tunnel-url.sh &
 
 exec supervisord -n -c /etc/supervisor/supervisord.conf
