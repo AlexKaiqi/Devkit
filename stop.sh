@@ -3,7 +3,7 @@ set -euo pipefail
 
 echo "停止服务..."
 
-for port in 3000 18789 8787; do
+for port in 3000 3001 18789 8787; do
   pids=$(lsof -t -i ":$port" 2>/dev/null || true)
   if [ -n "$pids" ]; then
     echo "$pids" | xargs kill -9 2>/dev/null || true
@@ -11,10 +11,22 @@ for port in 3000 18789 8787; do
   fi
 done
 
+tg_pids=$(pgrep -f "telegram-bot/bot.py" 2>/dev/null || true)
+if [ -n "$tg_pids" ]; then
+  echo "$tg_pids" | xargs kill 2>/dev/null || true
+  echo "  ✓ 已停止 Telegram Bot"
+fi
+
 cf_pids=$(pgrep -f "cloudflared.*tunnel" 2>/dev/null || true)
 if [ -n "$cf_pids" ]; then
   echo "$cf_pids" | xargs kill 2>/dev/null || true
   echo "  ✓ 已停止 cloudflared"
+fi
+
+if command -v docker &>/dev/null && docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^searxng$'; then
+  SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+  docker compose -f "$SCRIPT_DIR/docker-compose.yml" stop searxng > /dev/null 2>&1
+  echo "  ✓ 已停止 SearXNG"
 fi
 
 echo "done"

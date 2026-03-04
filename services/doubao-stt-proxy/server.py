@@ -9,6 +9,8 @@ import gzip
 import json
 import os
 import struct
+import subprocess
+import tempfile
 import uuid
 
 import logging
@@ -155,8 +157,37 @@ def _extract_pcm_from_wav(wav_bytes: bytes) -> bytes:
     return wav_bytes
 
 
-async def transcribe_with_doubao(audio_bytes: bytes, language: str = "zh-CN") -> str:
-    pcm_data = _extract_pcm_from_wav(audio_bytes)
+def _convert_to_pcm(audio_bytes: bytes, filename: str = "") -> bytes:
+    """Convert any audio format (webm, ogg, mp3, etc.) to 16kHz mono 16-bit PCM via ffmpeg."""
+    ext = os.path.splitext(filename)[1].lower() if filename else ""
+    if ext in (".wav", ".pcm", "") and audio_bytes[:4] == b"RIFF":
+        return _extract_pcm_from_wav(audio_bytes)
+
+    with tempfile.NamedTemporaryFile(suffix=ext or ".webm", delete=False) as src:
+        src.write(audio_bytes)
+        src_path = src.name
+    dst_path = src_path + ".wav"
+    try:
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", src_path,
+             "-ar", "16000", "-ac", "1", "-f", "s16le", dst_path],
+            capture_output=True, check=True, timeout=30,
+        )
+        with open(dst_path, "rb") as f:
+            return f.read()
+    except subprocess.CalledProcessError as e:
+        log.error("ffmpeg conversion failed: %s", e.stderr.decode(errors="replace"))
+        raise RuntimeError(f"Audio conversion failed: {e.stderr.decode(errors='replace')}")
+    finally:
+        for p in (src_path, dst_path):
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
+
+
+async def transcribe_with_doubao(audio_bytes: bytes, language: str = "zh-CN", filename: str = "") -> str:
+    pcm_data = _convert_to_pcm(audio_bytes, filename)
     reqid = str(uuid.uuid4())
 
     ws_headers = {
@@ -179,7 +210,6 @@ async def transcribe_with_doubao(audio_bytes: bytes, language: str = "zh-CN") ->
                 is_last = (i + chunk_size) >= len(pcm_data)
                 await ws.send_bytes(bytes(_build_audio_chunk(chunk, seq, last=is_last)))
                 seq += 1
-                await asyncio.sleep(0.05)
 
             while True:
                 try:
@@ -236,7 +266,7 @@ async def whisper_transcriptions(
     lang = lang_map.get(language, language)
 
     try:
-        text = await transcribe_with_doubao(audio_bytes, language=lang)
+        text = await transcribe_with_doubao(audio_bytes, language=lang, filename=file.filename or "")
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 

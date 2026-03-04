@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TARGET="$HOME/.openclaw/workspace"
 
-FILES=(IDENTITY.md SOUL.md USER.md AGENTS.md TOOLS.md HEARTBEAT.md)
+FILES=(IDENTITY.md SOUL.md USER.md AGENTS.md TOOLS.md HEARTBEAT.md MEMORY.md)
 
 if [ ! -d "$TARGET" ]; then
   echo "error: OpenClaw workspace not found at $TARGET"
@@ -27,6 +27,23 @@ for f in "${FILES[@]}"; do
     changed=$((changed + 1))
   fi
 done
+
+# memory/ 目录同步（每日日志）
+mkdir -p "$TARGET/memory"
+if [ -d "$SCRIPT_DIR/memory" ]; then
+  for f in "$SCRIPT_DIR/memory/"*.md; do
+    [ -f "$f" ] || continue
+    fname=$(basename "$f")
+    dst="$TARGET/memory/$fname"
+    if [ -f "$dst" ] && diff -q "$f" "$dst" >/dev/null 2>&1; then
+      : # no change
+    else
+      cp "$f" "$dst"
+      echo "  >>: memory/$fname (synced)"
+      changed=$((changed + 1))
+    fi
+  done
+fi
 
 echo ""
 if [ "$changed" -gt 0 ]; then

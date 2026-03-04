@@ -1,0 +1,57 @@
+---
+description: Devkit 项目上下文 — 让 AI 理解这是什么项目、关键文件在哪、遵循什么约定
+globs:
+alwaysApply: true
+---
+
+# Devkit 项目上下文
+
+## 这是什么
+
+Devkit 是一个 **AI 分身平台**，不是普通代码仓库。用户通过手机/桌面与 AI 分身（希露菲）对话，希露菲全权代理用户的开发、科研、生活管理。
+
+核心链路：`手机 (OpenCami) → OpenClaw Gateway → Cursor CLI / 外部工具链`
+
+## 关键文件地图
+
+| 文件 | 作用 | 何时读 |
+|------|------|--------|
+| `GOALS.md` | 项目愿景和当前迭代目标 | 每次会话开始 |
+| `STATUS.md` | 当前进度、已完成项 | 每次任务完成后更新 |
+| `DECISIONS.md` | 技术决策记录 | 做选型前查阅，做完后追加 |
+| `CAPABILITIES.md` | AI 分身能力体系 + 工具清单 | 需要新能力时参考 |
+| `PITFALLS.md` | 踩坑手册 | 遇到报错时查阅 |
+| `.env` / `.env.example` | 环境变量 | 配置相关问题时 |
+| `openclaw/*.md` | AI 分身人设和工作指令 | 理解分身行为时 |
+| `openclaw/MEMORY.md` | 长期记忆（用户偏好、经验、背景） | 每次会话开始时读取，发现新知识时追加 |
+| `openclaw/memory/` | 每日日志 | 每次会话结束时写入当天日志 |
+| `data/contacts.yml` | 通讯录 | 人际相关操作时读写 |
+| `data/gifts.yml` | 人情往来记录 | 送礼/节日相关时读写 |
+| `check.sh` | 项目状态诊断 | 判断项目健康度、初始化进度时 |
+| `scripts/notify.sh` | Telegram 通知 | 需要主动通知用户时 |
+
+## 约定
+
+- **Python**: 使用项目内 `.venv/`（Python 3.12），所有 Python 命令通过 `.venv/bin/python` 或 `.venv/bin/pip` 执行
+- **工具选型**: 开源优先、CLI 优先、闭源仅限不可替代的工具
+- **语言**: 中文沟通，技术术语保留英文
+- **文档更新**: 每次任务完成后更新 `STATUS.md`；做了技术决策追加到 `DECISIONS.md`
+- **记忆管理**: 重要发现写入 `openclaw/MEMORY.md`；每天的工作写入 `openclaw/memory/YYYY-MM-DD.md`
+- **Docker**: SearXNG 等容器服务通过 `docker-compose.yml` 管理
+
+## 项目状态诊断
+
+运行 `./check.sh` 可查看项目完整状态（依赖、配置、服务、工具）。
+运行 `./check.sh --json` 获取机器可读的 JSON 输出。
+
+## 技术栈
+
+- **运行环境**: macOS (Apple Silicon)
+- **AI 调度**: OpenClaw Gateway + Cursor CLI
+- **前端**: OpenCami (Web UI, PWA)
+- **语音**: 豆包 STT/TTS (火山引擎 BigModel)
+- **搜索**: SearXNG (自托管 Docker)
+- **邮件**: himalaya (IMAP/SMTP CLI)
+- **桌面自动化**: peekaboo
+- **Web 自动化**: Playwright
+- **容器**: Docker Compose

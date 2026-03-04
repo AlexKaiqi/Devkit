@@ -1,0 +1,13 @@
+# 人情往来
+# 记录送礼、收礼、随份子等人情交往
+#
+# Schema:
+#   date:     日期 (YYYY-MM-DD)
+#   type:     类型（送礼/收礼/随份子/请客/被请）
+#   person:   对象
+#   occasion: 场合（生日/婚礼/春节/乔迁/升职/其他）
+#   item:     物品/内容描述
+#   amount:   金额（元，可选）
+#   notes:    备注
+
+records: []

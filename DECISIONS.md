@@ -2,4 +2,22 @@
 
 | 日期 | 决策 | 决策者 | 原因 |
 |------|------|--------|------|
-<!-- 每条决策一行，决策者标注「用户」或「Gemini」 -->
+| 2026-03-05 | 主动通知渠道选 Telegram Bot | 用户 | 即时推送、支持 Markdown、curl 可调用、开放协议 |
+| 2026-03-05 | 记忆系统用文件存储（MEMORY.md + memory/），sync.sh 同步到 OpenClaw | 希露菲 | git 版本管理 + 跨会话持久 + 可在新机器恢复 |
+| 2026-03-05 | 定时巡检用 macOS launchd，不用 cron | 希露菲 | macOS 原生、支持 RunAtLoad、日志管理更好 |
+| 2026-03-05 | 结构化数据用 YAML 文件（data/），不用 SQLite | 希露菲 | git 友好、人类可读、AI 可直接编辑、量级小不需要数据库 |
+| 2026-03-05 | 工具选型原则：开源优先 + CLI 优先 + 闭源仅限不可替代 | 用户 | AI agent 擅长 CLI 操作，开源可控性更高 |
+| 2026-03-05 | 搜索引擎用 SearXNG 自托管（Docker），不用商业搜索 API | 希露菲 | 开源、无 API Key、支持 JSON 输出、可聚合多引擎 |
+| 2026-03-05 | 邮件 CLI 选 himalaya，不用 mutt/neomutt | 希露菲 | Rust 编写、现代设计、TOML 配置简洁、IMAP/SMTP 直连 |
+| 2026-03-05 | macOS 桌面自动化用 peekaboo，不用 AppleScript/Hammerspoon | 希露菲 | 专为 AI agent 设计，支持 screen capture + UI map + 模拟操作 |
+| 2026-03-05 | .venv 从 Python 3.9.6 升级到 3.12 | 希露菲 | 多个 pip 包（paperscout、papis 等）要求 ≥3.10 |
+| 2026-03-05 | SearXNG 持久化集成到 start.sh/stop.sh | 希露菲 | 随项目启停，Docker restart unless-stopped 保证崩溃恢复 |
+| 2026-03-04 | AI 分身更名 Kite → 希露菲，人设为混合风（温柔+干练） | 用户 | 用户偏好女性二次元角色，希露菲（无职转生）气质契合 |
+| 2026-03-04 | LLM 层去 Gemini 绑定，改为模型无关 | 用户 | AI 管家不应绑定特定模型，底层已支持 OpenAI 兼容接口切换 |
+| 2026-03-05 | 语音网页客户端命名「风铃」(FengLing) | 希露菲 | 风=Sylph(希露菲)，铃=声音，合为「风的声音」 |
+| 2026-03-05 | 对话渠道双轨：风铃(Web) + Telegram Bot | 用户 | 桌面用风铃语音交互，移动端用 Telegram 随时对话 |
+| 2026-03-05 | TTS 引擎选豆包语音合成 V1 API，不用 Edge TTS | 希露菲 | 与 STT 共用火山引擎凭据，质量优于 Edge TTS |
+| 2026-03-05 | TTS 升级至豆包语音合成大模型（`*_bigtts` / `*_tob` 音色），默认「甜美小源」 | 用户 | 大模型音色音质更自然、情感更丰富，同 V1 API + `volcano_tts` cluster 兼容 |
+| 2026-03-05 | 回复内容分区：文本(朗读) + 附件(代码块，仅展示) | 用户 | 代码被朗读体验差，分离后对话简洁、附件可复制 |
+| 2026-03-05 | 视觉理解用独立 VISION_MODEL，视频用 ffmpeg 抽帧而非直传 | 希露菲 | 视觉模型可独立选型（如用更快的 flash），抽帧兼容所有 OpenAI 兼容 API |
+<!-- 每条决策一行，决策者标注「用户」或「希露菲」 -->

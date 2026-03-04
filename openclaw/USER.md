@@ -3,17 +3,21 @@
 - **称呼:** 老板
 - **Timezone:** Asia/Shanghai (UTC+8)
 - **沟通语言:** 中文为主
-- **沟通渠道:** OpenCami
+- **沟通渠道:** OpenCami、Telegram（主动通知）
+- **邮箱:** alexkaiqi@gmail.com
 
 ## 工作风格
 
 - 关注目标和结果，不关心过程细节
 - 喜欢收到结构化的进度汇报
 - 倾向于使用已有的成熟产品而非从头搭建
+- 工具选型偏好：开源优先、CLI 优先
 - 会通过移动设备（手机）随时沟通
 
-## 当前项目
+## 管理的项目
 
-- **Devkit** — 路径: `/Users/kaiqidong/workspace/Devkit`
-  - 多 agent 协同开发项目
-  - Kite 负责管理和调度，Cursor Agent 负责写代码
+| 项目 | 路径 | 说明 |
+|------|------|------|
+| **Devkit** | `/Users/kaiqidong/Devkit` | AI 分身平台（大本营） |
+
+> 新项目在此追加。希露菲可管理多个项目，通过 `cd <路径> && cursor agent -p "..."` 调度。

@@ -1,0 +1,105 @@
+---
+description: 项目初始化引导 — 检测到未完成配置时，AI 交互式引导用户完成初始化
+globs:
+alwaysApply: true
+---
+
+# Devkit 初始化引导
+
+当用户首次打开项目或在新机器上配置时，按此流程引导。
+
+## 触发条件
+
+以下任一条件成立时，主动提示用户并引导初始化：
+
+- `.env` 文件不存在
+- `.venv/` 目录不存在
+- `~/.openclaw/openclaw.json` 不存在
+- 用户提到"初始化"、"安装"、"配置"、"setup"
+
+## 诊断优先
+
+**先跑诊断，再给建议**：运行 `./check.sh --json`，根据输出判断缺什么，不要猜测。
+
+## 引导流程
+
+按优先级依次处理 `check.sh` 报告的问题：
+
+### 阶段 1：系统依赖（check.sh → system）
+
+缺失的依赖通过 Homebrew 安装：
+
+```
+brew install node python@3.12 git
+```
+
+Docker 需单独安装 Docker Desktop: https://www.docker.com/products/docker-desktop/
+Cursor IDE: https://www.cursor.com/
+
+### 阶段 2：环境配置（check.sh → env）
+
+如果 `.env` 不存在，先创建：`cp .env.example .env`
+
+然后逐个引导必填项：
+
+- **DOUBAO_APPID / DOUBAO_TOKEN**: 火山引擎控制台 → 语音技术 → 语音识别大模型，创建应用获取
+  - 控制台地址: https://console.volcengine.com/speech/service/8
+  - 同一 APPID/TOKEN 可同时用于 STT 和 TTS
+- **LLM_API_KEY**: 任意 OpenAI 兼容服务商的 API Key
+  - 推荐：OpenAI、DeepSeek、Anthropic（通过 OpenAI 代理）、本地 Ollama
+  - 同时设置 LLM_BASE_URL 指向对应服务商的 API 地址
+
+### 阶段 3：安装（setup.sh）
+
+所有必填 .env 变量就绪后，运行：
+
+```bash
+./setup.sh
+```
+
+这会自动完成：Python .venv 创建、pip 依赖安装、Homebrew CLI 工具安装、Playwright 浏览器下载、OpenClaw/OpenCami 安装。
+
+### 阶段 4：OpenClaw 配置
+
+如果 `~/.openclaw/openclaw.json` 不存在：
+
+```bash
+openclaw onboard          # 交互式配置（选 LLM provider、Channel 等）
+./openclaw/sync.sh         # 同步 Agent 人设到运行时
+```
+
+### 阶段 5：可选配置
+
+非必需，按用户需要引导：
+
+- **邮件 (himalaya)**: 需要 Gmail App Password
+  - Google 账号 → 安全 → 两步验证 → 应用专用密码
+  - 配置文件: `~/.config/himalaya/config.toml`
+  - 参考: https://pimalaya.org/himalaya/cli/latest/configuration/
+
+- **日历 (vdirsyncer)**: 需要 Google Calendar CalDAV 授权
+  - 配置文件: `~/.config/vdirsyncer/config`
+  - 或改用 `gcalcli`（OAuth 更简单）
+
+- **Home Assistant**: 需要长期访问令牌
+  - HA 个人资料页面 → 长期访问令牌 → 创建
+  - 设置 .env 中的 HASS_SERVER 和 HASS_TOKEN
+
+- **Telegram Bot**: 通过 @BotFather 创建
+  - 设置 .env 中的 TELEGRAM_BOT_TOKEN
+
+### 阶段 6：验证
+
+全部配置完成后：
+
+```bash
+./check.sh                 # 确认所有项目绿色
+./start.sh                 # 启动服务
+```
+
+## 引导原则
+
+- 一次只问一个问题，不要一股脑列出所有待办
+- 用户提供凭据后立即写入 .env 并验证
+- 遇到问题查 `PITFALLS.md`
+- 每完成一个阶段，跑一次 `./check.sh` 确认进度

@@ -1,5 +1,9 @@
 # Audit logs (contain full agent interaction history, may be large)
 .audit/
+data/voice-audit/
+
+# Screenshots (testing artifacts)
+screenshots/
 
 # Python
 __pycache__/
@@ -18,6 +22,12 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Node
+node_modules/
+
+# Heartbeat state
+.heartbeat/
 
 # Environment
 .env

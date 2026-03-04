@@ -1,0 +1,16 @@
+# 通讯录
+# 希露菲通过此文件管理用户的联系人信息
+#
+# Schema:
+#   name:         姓名（必填）
+#   relation:     关系（家人/朋友/同事/同学/合作伙伴/其他）
+#   email:        邮箱
+#   phone:        电话
+#   birthday:     生日 (YYYY-MM-DD)
+#   org:          所属组织/公司
+#   tags:         标签列表
+#   notes:        备注
+#   last_contact: 最后联系日期
+#   contact_freq: 建议联系频率（weekly/monthly/quarterly/yearly）
+
+contacts: []

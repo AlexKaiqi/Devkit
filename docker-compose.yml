@@ -1,4 +1,17 @@
 services:
+  # ── 本地开发服务 ──
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./services/searxng/settings.yml:/etc/searxng/settings.yml:ro
+    restart: unless-stopped
+
+  # ── 全容器部署（可选）──
+
   devkit:
     build: .
     env_file: .env
@@ -9,6 +22,7 @@ services:
     volumes:
       - openclaw-data:/root/.openclaw
     restart: unless-stopped
+    profiles: [deploy]
 
 volumes:
   openclaw-data:
