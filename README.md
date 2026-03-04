@@ -139,6 +139,13 @@ Playwright 移动端视口测试（iPhone / Pixel 模拟）：
 .venv/bin/python tests/mobile/test_vision.py
 ```
 
+手机操作 Agent 测试（需要运行 Android 模拟器）：
+
+```bash
+./phone.sh start
+.venv/bin/python tests/mobile/test_phone_agent.py
+```
+
 ### 语音输入
 
 OpenCami 设置中 STT Provider 选择 **OpenAI** 或 **Auto**，语音会通过豆包 BigModel ASR 识别。
@@ -194,7 +201,8 @@ Devkit/
 ├── tests/mobile/             # 移动端自动化测试
 │   ├── test_opencami.py       #   Playwright 视口测试
 │   ├── test_voice_e2e.py      #   TTS→STT 语音闭环测试
-│   └── test_vision.py         #   Gemini 图片/视频理解测试
+│   ├── test_vision.py         #   Gemini 图片/视频理解测试
+│   └── test_phone_agent.py    #   手机操作 Agent 全流程测试
 ├── phone.sh                  # 虚拟手机一键启动
 ├── .cursor/rules/            # Cursor Agent 行为规则
 ├── specs/                    # 需求 Spec 模板
