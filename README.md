@@ -195,7 +195,8 @@ Devkit/
 ├── GOALS.md                  # 项目目标
 ├── STATUS.md                 # 当前状态
 ├── DECISIONS.md              # 决策记录
-└── PITFALLS.md               # 踩坑手册（Agent 参考）
+├── PITFALLS.md               # 踩坑手册（Agent 参考）
+└── CAPABILITIES.md           # Agent 平台能力需求（选型参考）
 ```
 
 ## 配置说明
