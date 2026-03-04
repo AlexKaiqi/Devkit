@@ -139,15 +139,26 @@ OpenCami 设置中 STT Provider 选择 **OpenAI** 或 **Auto**，语音会通过
 
 ### 语音合成 (TTS)
 
-同一 DOUBAO_APPID/TOKEN 可同时用于 STT 和 TTS。可用音色：
+同一 DOUBAO_APPID/TOKEN 可同时用于 STT 和 TTS，支持两代模型：
+
+**标准 TTS (V1 API)**：
 
 | voice_type | 名称 |
 |---|---|
-| `BV700_V2_streaming` | 灿灿（活力女声，推荐） |
+| `BV700_V2_streaming` | 灿灿（活力女声） |
 | `BV001_streaming` | 通用女声 |
 | `BV002_streaming` | 通用男声 |
 
-> BigModel 音色（`_bigtts` 后缀）需在火山引擎控制台单独购买音色授权。
+**SeedTTS 2.0 (V3 API)**  — 更自然的韵律，支持语音指令控制情感：
+
+| speaker | 名称 |
+|---|---|
+| `zh_female_vv_uranus_bigtts` | vivi 2.0（通用，推荐） |
+| `saturn_zh_female_cancan_tob` | 知性灿灿（角色扮演） |
+| `saturn_zh_female_keainvsheng_tob` | 可爱女生（角色扮演） |
+| `zh_male_ruyayichen_saturn_bigtts` | 儒雅逸辰（视频配音） |
+
+> 2.0 音色需在火山引擎控制台开通"豆包语音合成模型2.0"并下单对应音色。
 
 ## 项目结构
 
