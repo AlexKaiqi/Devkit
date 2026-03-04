@@ -261,3 +261,72 @@ tail -f /tmp/opencami.log            # OpenCami
 **移动端无法使用麦克风**
 
 HTTP 协议下浏览器禁止麦克风访问。使用 Cloudflare Tunnel 提供的 HTTPS 链接即可解决（已集成，`./start.sh` 启动后自动输出）。
+
+## 踩坑记录
+
+开发过程中遇到的关键问题及解决方案，避免后续重复踩坑。
+
+### Docker 构建
+
+| 问题 | 原因 | 解决 |
+|---|---|---|
+| `npm error syscall spawn git` | Docker 镜像缺少 git | Dockerfile 中 `apt-get install` 加上 `git` |
+| `openclaw: Node.js v22.12+ is required` | 基础镜像版本过低 | 基础镜像从 `node:20-slim` 改为 `node:22-slim` |
+| `sed` 替换 URL 报错 `unknown option to 's'` | URL 中的 `/` 与 sed 默认分隔符冲突 | 改用 Python 脚本做字符串替换，避免分隔符转义问题 |
+
+### OpenClaw / OpenCami
+
+| 问题 | 原因 | 解决 |
+|---|---|---|
+| OpenCami 连接 Gateway 报 `origin not allowed` | OpenCami 未发送正确的 Origin 头 | 设置环境变量 `OPENCAMI_ORIGIN="http://localhost:3000"` |
+| OpenCami 报 `missing required scope: operator.read` | 新设备默认无操作权限 | 执行 `openclaw devices rotate --scope operator.read --scope operator.write ...` 添加权限，已自动化到 entrypoint |
+| Gateway `allowedOrigins` 不含 Tunnel 域名 | Cloudflare Tunnel 生成的域名不在白名单中 | 在 `openclaw.json` 的 `allowedOrigins` 中加入 `https://*.trycloudflare.com` |
+
+### Cloudflare Tunnel
+
+| 问题 | 原因 | 解决 |
+|---|---|---|
+| `curl` 返回 HTTP 530 错误 | Docker 内 QUIC (UDP) 连接不稳定 | 添加 `--protocol http2` 强制使用 HTTP/2 而非 QUIC |
+| 上传较长音频 STT 报 "Network connection lost" | Cloudflare 免费层可能对大请求有超时限制 | 短音频正常工作；长音频可直连内网 STT 端口 |
+| Tunnel URL 每次重启变化 | 免费 Quick Tunnel 不支持固定域名 | 如需固定域名，注册 Cloudflare 账号绑定自有域名 |
+
+### 豆包语音 (TTS / STT)
+
+| 问题 | 原因 | 解决 |
+|---|---|---|
+| TTS 报 `resource not granted` | 火山引擎中 TTS 和 STT 是**独立服务**，需分别开通 | 在控制台为 APPID 分别开通语音识别和语音合成服务 |
+| 标准音色可用但大模型音色(`_bigtts`)不可用 | 大模型音色需**单独下单授权**（部分免费 0 元） | 控制台 → 音色列表 → 对需要的音色点"下单" |
+| SeedTTS 2.0 音色全部报 `resource ID mismatch` | 2.0 音色必须走 **V3 API**（不同于 V1 的鉴权和请求格式） | 使用 V3 端点 + `X-Api-Resource-Id: seed-tts-2.0` 头部 |
+| V3 响应解析报错 `code=20000000` | `20000000` 是 V3 流式响应的**中间成功状态码**，非错误 | 解析时跳过 code 0 和 20000000，只对其他非零 code 报错 |
+| 1.0 与 2.0 音色混用无效 | 两代模型音色 ID 命名不同，资源 ID 也不同 | 1.0 音色用 `seed-tts-1.0` / V1 API；2.0 音色（`saturn_`/`uranus_` 前缀）用 `seed-tts-2.0` / V3 API |
+
+### 豆包 TTS API 协议速查
+
+```
+V1 (标准 TTS):
+  URL:    POST https://openspeech.bytedance.com/api/v1/tts
+  鉴权:   Authorization: Bearer;{TOKEN}
+  Body:   { app: {appid, token, cluster:"volcano_tts"}, audio: {voice_type}, request: {text} }
+  成功码: 3000
+  音色:   BV001_streaming, BV700_V2_streaming 等
+
+V3 (SeedTTS 2.0):
+  URL:    POST https://openspeech.bytedance.com/api/v3/tts/unidirectional
+  鉴权:   X-Api-App-Id / X-Api-Access-Key / X-Api-Resource-Id: seed-tts-2.0
+  Body:   { user: {uid}, req_params: {text, speaker, audio_params: {format, sample_rate}} }
+  成功码: 0 (最终) / 20000000 (中间数据块)
+  音色:   zh_female_vv_uranus_bigtts, saturn_zh_female_cancan_tob 等
+```
+
+### Android 模拟器
+
+| 问题 | 原因 | 解决 |
+|---|---|---|
+| Chrome 首次运行弹出引导页，无法直接打开 URL | 模拟器中 Chrome 首次启动有 Welcome 流程 | `phone.sh` 中用 `adb shell uiautomator dump` 检测引导页并自动点击跳过 |
+| 模拟器中访问宿主机 localhost 失败 | Android 模拟器的 localhost 指向模拟器自身 | 使用 `10.0.2.2` 代替 localhost（Android 模拟器预设的宿主机映射） |
+
+### Playwright 测试
+
+| 问题 | 原因 | 解决 |
+|---|---|---|
+| `Sync API inside asyncio loop` | Playwright sync API 与 pytest-asyncio 冲突 | 使用 `sync_playwright()` 上下文管理器在 `scope="module"` fixture 中管理生命周期 |
