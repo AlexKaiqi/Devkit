@@ -1,0 +1,14 @@
+services:
+  devkit:
+    build: .
+    env_file: .env
+    ports:
+      - "${OPENCAMI_PORT:-3000}:${OPENCAMI_PORT:-3000}"
+      - "${OPENCLAW_GATEWAY_PORT:-18789}:${OPENCLAW_GATEWAY_PORT:-18789}"
+      - "${STT_PROXY_PORT:-8787}:${STT_PROXY_PORT:-8787}"
+    volumes:
+      - openclaw-data:/root/.openclaw
+    restart: unless-stopped
+
+volumes:
+  openclaw-data:
