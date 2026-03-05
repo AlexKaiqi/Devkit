@@ -18,6 +18,14 @@ CAMI_PORT="${OPENCAMI_PORT:-3000}"
 GATEWAY_TOKEN="${OPENCLAW_GATEWAY_TOKEN:-}"
 TIMER_API_PORT="${TIMER_API_PORT:-8789}"
 
+# ── 同步 openclaw workspace ──────────────────
+WORKSPACE_DIR="$HOME/.openclaw/workspace"
+if [ -d "$WORKSPACE_DIR" ]; then
+  for f in "$SCRIPT_DIR"/openclaw/*.md; do
+    cp "$f" "$WORKSPACE_DIR/" 2>/dev/null
+  done
+fi
+
 # ── 辅助函数 ─────────────────────────────────
 
 is_port_in_use() { lsof -i ":$1" &>/dev/null; }
