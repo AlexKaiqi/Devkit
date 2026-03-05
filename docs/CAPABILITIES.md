@@ -12,6 +12,7 @@
 | 智能家居 | [smart-home](specs/smart-home.md) | △ 待配置 | Home Assistant + hass-cli |
 | 人际管理 | [social-management](specs/social-management.md) | △ 部分就绪 | khard + YAML data/ |
 | 股票分析 | [stock-analysis](specs/stock-analysis.md) | ✓ 已验证 | akshare-one-mcp (MCP) |
+| 事件驱动系统 | [event-system](specs/event-system.md) | ✓ 已验证 | EventBus (asyncio) + Timer API |
 
 ## 技能矩阵
 
@@ -41,6 +42,7 @@
 | 5.1 | 服务管理 | 重要 | ✓ start.sh/stop.sh/check.sh |
 | 5.2 | 定时巡检 | 重要 | △ heartbeat.sh 已就绪，launchd 待安装 |
 | 5.3 | 日程与提醒 | 重要 | △ khal 已安装，CalDAV 待配置 |
+| 5.5 | 事件驱动定时器 | 必须 | ✓ EventBus + Timer API(:8789)，[spec](specs/event-system.md) |
 | 5.4a | 手机操作 | 重要 | ✓ UIAutomator + 视觉模型 + ADB |
 | 5.4b | 桌面操作 | 重要 | ◎ peekaboo 已安装 |
 | 5.4c | Web 操作 | 重要 | ◎ playwright 已就绪 |
@@ -85,7 +87,7 @@
 | 文件系统读写 | 1.2 质量验证、2.3 决策记录、4.1 经验积累 |
 | LLM 推理（含工具调用） | 所有技能的基础 |
 | 语音识别 (STT) + 语音合成 (TTS) | 3.2 语音交互 |
-| 定时调度 | 3.3 主动通知、5.2 定时巡检 |
+| 定时调度（事件驱动） | 3.3 主动通知、5.2 定时巡检、5.5 定时器 — [event-system spec](specs/event-system.md) |
 | 图片/视频理解 | 3.4 视觉理解 |
 | MCP 插件机制 | 6.x 外部集成 |
 
