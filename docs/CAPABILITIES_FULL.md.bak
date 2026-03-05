@@ -354,6 +354,17 @@ UIAutomator dump_hierarchy → 结构化元素列表（精确坐标）
 - SaaS 工具（设计工具、数据库管理等）
 - 以 MCP（Model Context Protocol）插件化方式扩展，不硬编码
 
+### 6.11 A 股数据
+
+通过 MCP 协议（akshare-one-mcp）获取中国 A 股市场数据。
+
+- 历史 K 线数据（分钟/小时/日/周/月/年级别）
+- 核心财务指标（营收、净利润、资产等）
+- 财务三表（资产负债表、利润表、现金流量表）
+- 个股新闻与内幕交易信息
+- 30+ 技术指标（MACD、RSI、布林带等）
+- 数据源：东方财富、新浪财经、雪球
+
 ---
 
 ## 七、科研技能
@@ -554,6 +565,7 @@ UIAutomator dump_hierarchy → 结构化元素列表（精确坐标）
 | 6.8 | 天气与位置服务 | 一般 | ◎ curl wttr.in 可用 |
 | 6.9 | 云存储同步 | 一般 | ◎ rclone 已安装 |
 | 6.10 | 第三方 API（通用） | 一般 | △ MCP 协议可用，按需接入 |
+| 6.11 | A 股数据 | 重要 | ✓ akshare-one-mcp 通过 mcporter 端到端验证（历史行情、财务三表、财务指标） |
 | **科研** | | | |
 | 7.1 | 文献检索 | 重要 | ◎ paperscout 已安装 (arXiv/S2/DBLP) |
 | 7.2 | 论文阅读与摘要 | 重要 | △ LLM 可做摘要，marker PDF 转换可用 |
@@ -599,6 +611,7 @@ UIAutomator dump_hierarchy → 结构化元素列表（精确坐标）
 - 邮件读取 — 通过 himalaya 读取最新邮件（发件人/主题/日期/状态）
 - Docker 管理 — 查看容器运行状态
 - 会话管理 — 新会话自动创建，各渠道 session 隔离
+- MCP 工具调用 — 通过 mcporter 调用外部 MCP server（akshare-one-mcp A 股数据已验证）
 
 **已知限制：**
 

@@ -123,6 +123,7 @@ class GatewayClient:
         token: str = "",
         client_display_name: str = "风铃",
         device_name: str = "device",
+        event_bus: Any | None = None,
     ):
         self.gateway_url = gateway_url
         self.token = token
@@ -135,6 +136,7 @@ class GatewayClient:
         self._reader_task: asyncio.Task | None = None
         self._connected = asyncio.Event()
         self._lock = asyncio.Lock()
+        self._event_bus = event_bus
 
     async def connect(self) -> None:
         """Connect to Gateway, perform handshake, then start read loop."""
@@ -234,7 +236,11 @@ class GatewayClient:
         return await asyncio.wait_for(future, timeout=30)
 
     async def resolve_session(self, friendly_id: str = "main") -> str:
-        """Resolve a friendly session ID to a session key, creating if needed."""
+        """Resolve a friendly session ID to a session key.
+
+        If the session doesn't exist yet, returns the friendly_id itself;
+        Gateway will create it implicitly on first chat.send.
+        """
         try:
             result = await self.request("sessions.resolve", {
                 "key": friendly_id,
@@ -244,11 +250,8 @@ class GatewayClient:
             return result.get("key", friendly_id)
         except Exception as e:
             if "No session found" in str(e):
-                log.info("Session '%s' not found, creating...", friendly_id)
-                result = await self.request("sessions.create", {
-                    "friendlyId": friendly_id,
-                })
-                return result.get("key", friendly_id)
+                log.info("Session '%s' not found, will use as key directly", friendly_id)
+                return friendly_id
             raise
 
     async def chat_send(
@@ -269,8 +272,8 @@ class GatewayClient:
         """
         await self.ensure_connected()
 
-        queue: asyncio.Queue = asyncio.Queue()
         queue_id = str(uuid.uuid4())
+        queue: asyncio.Queue = asyncio.Queue()
         self._event_queues[queue_id] = queue
 
         params: dict[str, Any] = {
@@ -284,11 +287,13 @@ class GatewayClient:
             params["attachments"] = attachments
 
         try:
-            await self.request("chat.send", params)
+            result = await self.request("chat.send", params)
         except Exception as e:
-            del self._event_queues[queue_id]
+            self._event_queues.pop(queue_id, None)
             yield {"type": "error", "content": str(e)}
             return
+
+        run_id = result.get("runId", "")
 
         full_text = ""
         try:
@@ -302,15 +307,19 @@ class GatewayClient:
                 if event is None:
                     break
 
+                evt_payload = event.get("payload", {})
+                evt_run_id = evt_payload.get("runId", "")
+                if run_id and evt_run_id and evt_run_id != run_id:
+                    continue
+
                 evt_name = event.get("event", "")
-                payload = event.get("payload", {})
 
                 if evt_name == "agent":
-                    stream_type = payload.get("stream", "")
-                    data = payload.get("data", {})
+                    stream_type = evt_payload.get("stream", "")
+                    data = evt_payload.get("data", {})
 
                     if stream_type == "assistant":
-                        delta = data.get("delta") or data.get("text") or payload.get("delta") or payload.get("text") or ""
+                        delta = data.get("delta") or data.get("text") or evt_payload.get("delta") or evt_payload.get("text") or ""
                         if delta:
                             full_text += delta
                             yield {"type": "text", "content": delta}
@@ -318,27 +327,25 @@ class GatewayClient:
                     elif stream_type == "tool":
                         yield {
                             "type": "tool",
-                            "name": data.get("name") or data.get("toolName") or payload.get("name") or "",
-                            "status": data.get("phase") or data.get("status") or payload.get("phase") or "",
-                            "id": data.get("id") or data.get("toolCallId") or payload.get("id") or "",
+                            "name": data.get("name") or data.get("toolName") or evt_payload.get("name") or "",
+                            "status": data.get("phase") or data.get("status") or evt_payload.get("phase") or "",
+                            "id": data.get("id") or data.get("toolCallId") or evt_payload.get("id") or "",
                         }
 
                     elif stream_type == "lifecycle":
-                        phase = data.get("phase") or payload.get("phase") or ""
+                        phase = data.get("phase") or evt_payload.get("phase") or ""
                         if phase in ("end", "error"):
                             if phase == "error":
-                                err = data.get("error") or payload.get("error") or "unknown error"
+                                err = data.get("error") or evt_payload.get("error") or "unknown error"
                                 yield {"type": "error", "content": str(err)}
                             yield {"type": "done", "full_text": full_text}
                             break
 
                 elif evt_name == "chat":
-                    # chat events duplicate agent events; only use as
-                    # fallback completion signal when no lifecycle/end arrives.
-                    state = payload.get("state", "")
+                    state = evt_payload.get("state", "")
                     if state == "final":
                         if not full_text:
-                            msg = payload.get("message", {})
+                            msg = evt_payload.get("message", {})
                             ct = msg.get("content", [])
                             if isinstance(ct, list) and ct:
                                 full_text = ct[0].get("text", "")
@@ -383,7 +390,10 @@ class GatewayClient:
                         for q in self._event_queues.values():
                             await q.put(msg)
                     elif evt == "tick":
-                        pass  # heartbeat, ignore
+                        pass
+
+                    if self._event_bus is not None:
+                        await self._publish_to_bus(msg)
 
         except websockets.ConnectionClosed:
             log.warning("Gateway WebSocket closed")
@@ -400,3 +410,19 @@ class GatewayClient:
                 if not f.done():
                     f.set_exception(Exception("connection lost"))
             self._pending.clear()
+
+    async def _publish_to_bus(self, msg: dict) -> None:
+        """Forward Gateway WebSocket events to the EventBus."""
+        try:
+            from event_bus import Event
+            evt_name = msg.get("event", "")
+            payload = msg.get("payload", {})
+            session_key = payload.get("sessionKey", "")
+            bus_event = Event(
+                event_type=f"gateway.{evt_name}",
+                session_key=session_key,
+                payload=payload,
+            )
+            await self._event_bus.publish(bus_event)
+        except Exception:
+            log.debug("EventBus publish failed for gateway event", exc_info=True)

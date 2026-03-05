@@ -27,4 +27,6 @@
 | 2026-03-05 | Gateway 客户端用 Ed25519 设备认证 + v3 签名协议 | 希露菲 | 与 Gateway 协议规范一致，本地连接自动批准，无需手动配对 |
 | 2026-03-05 | Gateway 事件去重：仅处理 agent 事件，忽略 chat delta 事件 | 希露菲 | Gateway 同时发 agent 和 chat 两种事件含相同文本，取 agent 事件做流式，chat 仅作完成信号 fallback |
 | 2026-03-05 | 能力状态用四级标记（✓已验证/◎已就绪/△部分就绪/✗未实现）| 希露菲 | 区分"工具安装了"和"端到端跑通了"，AI 原生项目要如实描述能力边界 |
+| 2026-03-05 | A 股数据用 akshare-one-mcp（MCP），通过 mcporter 集成 | 用户+希露菲 | 免费（AKShare 库）、纯 Python、覆盖沪深 A 股、免 API Key、uvx 一键运行 |
+| 2026-03-05 | 禁用 Gateway 内建 Telegram channel，延时任务改为事件驱动 Timer API | 用户+希露菲 | Gateway Telegram 与自定义 Bot 的 getUpdates 冲突(409)；cron --announce 因 operator WebSocket 无法解析用户 chat ID。新建 EventBus(asyncio pub/sub) + Timer HTTP API(:8789)，定时器绑定 session_key，到期自动投递到 Telegram。标准 asyncio 原语，无第三方依赖 |
 <!-- 每条决策一行，决策者标注「用户」或「希露菲」 -->

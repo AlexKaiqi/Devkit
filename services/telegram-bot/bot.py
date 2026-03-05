@@ -3,6 +3,7 @@ Telegram Bot for 希露菲 — text + voice + image + video conversations.
 Routes all chat through OpenClaw Gateway for full Agent capabilities.
 """
 
+import asyncio
 import base64
 import io
 import json
@@ -25,10 +26,12 @@ from telegram.ext import (
 )
 import re
 import aiohttp
+from aiohttp import web
 
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from gateway_client import GatewayClient
+from event_bus import EventBus, Event
 
 logging.basicConfig(
     format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
@@ -60,7 +63,15 @@ gw = GatewayClient(
     device_name="telegram-bot",
 )
 
+TIMER_API_PORT = int(os.environ.get("TIMER_API_PORT", "8789"))
+
+event_bus = EventBus()
+
+# Bidirectional session <-> chat_id mapping
 _session_keys: dict[int, str] = {}
+_chat_ids: dict[str, int] = {}
+
+_bot_instance = None
 
 # ── Audit ────────────────────────────────────────────
 
@@ -190,19 +201,37 @@ def extract_video_frames(video_bytes: bytes, max_frames: int = 4) -> list[str]:
     return frames
 
 
+def _bind_session(chat_id: int, session_key: str) -> None:
+    _session_keys[chat_id] = session_key
+    _chat_ids[session_key] = chat_id
+
+
+def session_to_chat_id(session_key: str) -> int | None:
+    if session_key in _chat_ids:
+        return _chat_ids[session_key]
+    # Try extracting chat_id from common session key patterns
+    for prefix in ("tg-", "telegram-"):
+        if session_key.startswith(prefix):
+            try:
+                return int(session_key[len(prefix):])
+            except ValueError:
+                pass
+    return None
+
+
 async def _resolve_session(chat_id: int) -> str:
     if chat_id in _session_keys:
         return _session_keys[chat_id]
     try:
         await gw.ensure_connected()
-        friendly = f"telegram-{chat_id}"
+        friendly = f"tg-{chat_id}"
         sk = await gw.resolve_session(friendly)
-        _session_keys[chat_id] = sk
+        _bind_session(chat_id, sk)
         return sk
     except Exception as e:
         log.error("Failed to resolve session: %s", e)
-        sk = f"telegram-{chat_id}"
-        _session_keys[chat_id] = sk
+        sk = f"tg-{chat_id}"
+        _bind_session(chat_id, sk)
         return sk
 
 
@@ -221,6 +250,9 @@ async def chat_via_gateway(
                 mime = header.split(":")[1].split(";")[0]
                 attachments.append({"mimeType": mime, "content": b64data})
 
+    audit("req", chat_id=chat_id, user=user_msg,
+          images=len(images) if images else 0, source="gateway")
+
     t0 = time.monotonic()
     full_reply = ""
     try:
@@ -238,8 +270,7 @@ async def chat_via_gateway(
         log.error("Gateway chat error: %s", e)
 
     elapsed = round((time.monotonic() - t0) * 1000)
-    audit("chat", chat_id=chat_id, user=user_msg, assistant=full_reply[:500],
-          images=len(images) if images else 0, ms=elapsed, source="gateway")
+    audit("res", chat_id=chat_id, assistant=full_reply[:500], ms=elapsed, source="gateway")
     return full_reply
 
 
@@ -269,6 +300,72 @@ async def _send_code_block(update: Update, lang: str, code: str):
         await update.message.reply_text(f"[{lang}]\n{code}")
 
 
+async def _reply_text_task(bot, chat_id: int, user_msg: str):
+    """Background: get gateway response and send reply. Non-blocking."""
+    try:
+        reply = await chat_via_gateway(chat_id, user_msg)
+        parsed = parse_response(reply)
+        if parsed["spoken"]:
+            await bot.send_message(chat_id=chat_id, text=parsed["spoken"])
+        for att in parsed["attachments"]:
+            try:
+                escaped = att["content"].replace("\\", "\\\\").replace("`", "\\`")
+                await bot.send_message(
+                    chat_id=chat_id,
+                    text=f"```{att['language']}\n{escaped}\n```",
+                    parse_mode="MarkdownV2",
+                )
+            except Exception:
+                await bot.send_message(chat_id=chat_id, text=f"[{att['language']}]\n{att['content']}")
+    except Exception as e:
+        log.error("Background reply failed: %s", e)
+        try:
+            await bot.send_message(chat_id=chat_id, text=f"抱歉，出了点问题：{e}")
+        except Exception:
+            pass
+
+
+async def _reply_voice_task(bot, chat_id: int, user_text: str):
+    """Background: get gateway response, send text + TTS. Non-blocking."""
+    try:
+        reply = await chat_via_gateway(chat_id, user_text)
+        parsed = parse_response(reply)
+        spoken = parsed["spoken"]
+
+        display_text = f"🎤 {user_text}\n\n{spoken}" if spoken else f"🎤 {user_text}"
+        await bot.send_message(chat_id=chat_id, text=display_text)
+        for att in parsed["attachments"]:
+            try:
+                escaped = att["content"].replace("\\", "\\\\").replace("`", "\\`")
+                await bot.send_message(
+                    chat_id=chat_id,
+                    text=f"```{att['language']}\n{escaped}\n```",
+                    parse_mode="MarkdownV2",
+                )
+            except Exception:
+                await bot.send_message(chat_id=chat_id, text=f"[{att['language']}]\n{att['content']}")
+
+        if spoken:
+            tts_t0 = time.monotonic()
+            audio_data = await tts_synthesize(spoken)
+            tts_ms = round((time.monotonic() - tts_t0) * 1000)
+
+            if audio_data:
+                audit("tts", chat_id=chat_id,
+                      text_len=len(spoken), audio_bytes=len(audio_data), ms=tts_ms)
+                await bot.send_voice(
+                    chat_id=chat_id,
+                    voice=io.BytesIO(audio_data),
+                    caption="希露菲语音回复",
+                )
+    except Exception as e:
+        log.error("Background voice reply failed: %s", e)
+        try:
+            await bot.send_message(chat_id=chat_id, text=f"抱歉，出了点问题：{e}")
+        except Exception:
+            pass
+
+
 async def handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not is_allowed(update):
         return
@@ -277,19 +374,14 @@ async def handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not user_msg:
         return
 
-    reply = await chat_via_gateway(update.effective_chat.id, user_msg)
-    parsed = parse_response(reply)
-    if parsed["spoken"]:
-        await update.message.reply_text(parsed["spoken"])
-    for att in parsed["attachments"]:
-        await _send_code_block(update, att["language"], att["content"])
+    asyncio.create_task(_reply_text_task(
+        ctx.bot, update.effective_chat.id, user_msg,
+    ))
 
 
 async def handle_voice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not is_allowed(update):
         return
-
-    t0 = time.monotonic()
 
     voice = update.message.voice or update.message.audio
     if not voice:
@@ -309,30 +401,9 @@ async def handle_voice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     audit("stt", chat_id=update.effective_chat.id, text=user_text, ms=stt_ms)
 
-    reply = await chat_via_gateway(update.effective_chat.id, user_text)
-    parsed = parse_response(reply)
-    spoken = parsed["spoken"]
-
-    display_text = f"🎤 {user_text}\n\n{spoken}" if spoken else f"🎤 {user_text}"
-    await update.message.reply_text(display_text)
-    for att in parsed["attachments"]:
-        await _send_code_block(update, att["language"], att["content"])
-
-    if spoken:
-        tts_t0 = time.monotonic()
-        audio_data = await tts_synthesize(spoken)
-        tts_ms = round((time.monotonic() - tts_t0) * 1000)
-
-        if audio_data:
-            audit("tts", chat_id=update.effective_chat.id,
-                  text_len=len(spoken), audio_bytes=len(audio_data), ms=tts_ms)
-            await update.message.reply_voice(
-                voice=io.BytesIO(audio_data),
-                caption="希露菲语音回复",
-            )
-
-    total_ms = round((time.monotonic() - t0) * 1000)
-    log.info("Voice round-trip: stt=%dms total=%dms", stt_ms, total_ms)
+    asyncio.create_task(_reply_voice_task(
+        ctx.bot, update.effective_chat.id, user_text,
+    ))
 
 
 async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -390,19 +461,132 @@ async def handle_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await _send_code_block(update, att["language"], att["content"])
 
 
+# ── Timer event handler ───────────────────────────────
+
+async def _on_timer_fired(event: Event) -> None:
+    global _bot_instance
+    if _bot_instance is None:
+        log.error("Timer fired but bot instance not ready")
+        return
+
+    chat_id = session_to_chat_id(event.session_key)
+    if chat_id is None:
+        log.error("Timer fired but can't resolve chat_id for session '%s'", event.session_key)
+        return
+
+    message = event.payload.get("message", "")
+    if not message:
+        log.warning("Timer fired with empty message, session=%s", event.session_key)
+        return
+
+    try:
+        await _bot_instance.send_message(chat_id=chat_id, text=message)
+        audit("timer.fired", chat_id=chat_id, message=message[:200],
+              timer_id=event.payload.get("timer_id", ""))
+        log.info("Timer delivered to chat_id=%s: %s", chat_id, message[:80])
+    except Exception:
+        log.exception("Failed to deliver timer message to chat_id=%s", chat_id)
+
+
+# ── Timer HTTP API ────────────────────────────────────
+
+async def _api_create_timer(request: web.Request) -> web.Response:
+    try:
+        data = await request.json()
+    except Exception:
+        return web.json_response({"ok": False, "error": "invalid JSON"}, status=400)
+
+    delay = data.get("delay_seconds")
+    session_key = data.get("session_key", "")
+    message = data.get("message", "")
+
+    if not delay or not isinstance(delay, (int, float)) or delay <= 0:
+        return web.json_response({"ok": False, "error": "delay_seconds must be > 0"}, status=400)
+    if not session_key:
+        return web.json_response({"ok": False, "error": "session_key required"}, status=400)
+    if not message:
+        return web.json_response({"ok": False, "error": "message required"}, status=400)
+
+    timer_id = await event_bus.schedule_timer(
+        delay_seconds=float(delay),
+        session_key=session_key,
+        payload={"message": message},
+    )
+    audit("timer.created", session_key=session_key,
+          delay_seconds=delay, message=message[:200], timer_id=timer_id)
+
+    return web.json_response({"ok": True, "timer_id": timer_id, "delay_seconds": delay})
+
+
+async def _api_list_timers(request: web.Request) -> web.Response:
+    return web.json_response({"ok": True, "timers": event_bus.list_timers()})
+
+
+async def _api_cancel_timer(request: web.Request) -> web.Response:
+    timer_id = request.match_info.get("timer_id", "")
+    if not timer_id:
+        return web.json_response({"ok": False, "error": "timer_id required"}, status=400)
+    cancelled = event_bus.cancel_timer(timer_id)
+    if cancelled:
+        audit("timer.cancelled", timer_id=timer_id)
+    return web.json_response({"ok": cancelled})
+
+
+def _create_api_app() -> web.Application:
+    api = web.Application()
+    api.router.add_post("/api/timer", _api_create_timer)
+    api.router.add_get("/api/timers", _api_list_timers)
+    api.router.add_delete("/api/timer/{timer_id}", _api_cancel_timer)
+    api.router.add_get("/health", lambda _: web.json_response({"status": "ok"}))
+    return api
+
+
 # ── Main ─────────────────────────────────────────────
 
+async def _async_main() -> None:
+    global _bot_instance
+
+    log.info(
+        "Starting Telegram bot (gateway=:%s, chat_id=%s, timer_api=:%s)",
+        GATEWAY_PORT, ALLOWED_CHAT_ID, TIMER_API_PORT,
+    )
+
+    event_bus.subscribe("timer.fired", _on_timer_fired)
+
+    tg_app = ApplicationBuilder().token(BOT_TOKEN).build()
+    tg_app.add_handler(CommandHandler("start", cmd_start))
+    tg_app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+    tg_app.add_handler(MessageHandler(filters.VIDEO | filters.VIDEO_NOTE, handle_video))
+    tg_app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, handle_voice))
+    tg_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+
+    api_app = _create_api_app()
+    runner = web.AppRunner(api_app)
+    await runner.setup()
+    site = web.TCPSite(runner, "127.0.0.1", TIMER_API_PORT)
+
+    async with tg_app:
+        _bot_instance = tg_app.bot
+        await tg_app.start()
+        await tg_app.updater.start_polling(drop_pending_updates=True)
+        await site.start()
+        log.info("Timer API listening on http://127.0.0.1:%s", TIMER_API_PORT)
+
+        stop_event = asyncio.Event()
+        try:
+            await stop_event.wait()
+        except (KeyboardInterrupt, SystemExit):
+            pass
+        finally:
+            log.info("Shutting down...")
+            await event_bus.shutdown()
+            await tg_app.updater.stop()
+            await tg_app.stop()
+            await runner.cleanup()
+
+
 def main():
-    log.info("Starting Telegram bot (gateway=:%s, chat_id=%s)", GATEWAY_PORT, ALLOWED_CHAT_ID)
-
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", cmd_start))
-    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
-    app.add_handler(MessageHandler(filters.VIDEO | filters.VIDEO_NOTE, handle_video))
-    app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, handle_voice))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-
-    app.run_polling(drop_pending_updates=True)
+    asyncio.run(_async_main())
 
 
 if __name__ == "__main__":

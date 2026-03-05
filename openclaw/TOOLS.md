@@ -5,7 +5,7 @@
 - **机器:** macOS (Apple Silicon)
 - **主项目:** `/Users/kaiqidong/Devkit`
 - **Python 虚拟环境:** 项目内 `.venv/`（Python 3.12），所有 Python 命令通过 `.venv` 执行
-- **Cursor CLI:** `cursor agent -p "<prompt>"` — 调用本地 Cursor Agent 执行开发
+- **Cursor CLI:** `cursor agent -p "<prompt>" --trust` — 调用本地 Cursor Agent 执行开发（**必须通过 `bash pty:true` 调用**，否则会挂起）
 
 ## Shell 使用规范
 
@@ -16,11 +16,33 @@
 
 ### 允许
 
-- `cursor agent -p "..."` — 调度开发任务
+- `bash pty:true workdir:<项目路径> command:"cursor agent -p '...' --trust"` — 调度开发任务（需 PTY，否则挂起）
+- `bash pty:true workdir:<项目路径> background:true command:"cursor agent -p '...' --trust"` — 后台调度长任务
 - `git add / commit / push / pull / status / diff / log` — 版本管理
 - `ls / cat / head / tail / find / wc` — 文件查看
 - `cd` — 切换目录
 - `.venv/bin/python` / `.venv/bin/pip` — Python 环境
+
+#### MCP 工具（通过 mcporter）— A 股数据
+
+调用格式：`mcporter call akshare-one-mcp.<工具名> --args '<JSON参数>'`
+
+- `mcporter call akshare-one-mcp.get_hist_data --args '{"symbol":"600519","interval":"day","recent_n":10}'` — 历史 K 线（支持 minute/hour/day/week/month/year）
+- `mcporter call akshare-one-mcp.get_financial_metrics --args '{"symbol":"600519","recent_n":3}'` — 核心财务指标
+- `mcporter call akshare-one-mcp.get_balance_sheet --args '{"symbol":"600519","recent_n":3}'` — 资产负债表
+- `mcporter call akshare-one-mcp.get_income_statement --args '{"symbol":"600519","recent_n":3}'` — 利润表
+- `mcporter call akshare-one-mcp.get_cash_flow --args '{"symbol":"600519","recent_n":3}'` — 现金流量表
+- `mcporter call akshare-one-mcp.get_news_data --args '{"symbol":"600519"}'` — 个股新闻
+- `mcporter call akshare-one-mcp.get_inner_trade_data --args '{"symbol":"600519"}'` — 内幕交易
+- `mcporter call akshare-one-mcp.get_time_info --args '{}'` — 当前时间与最近交易日
+- `mcporter list` — 列出所有可用 MCP 服务器
+
+股票代码格式：纯数字，如 `600519`（茅台）、`000001`（平安银行）、`300750`（宁德时代）。
+当用户询问股票相关信息时，**直接调用上述命令**获取数据，不要说"无法查询"。
+最近股价可用 `get_hist_data` + `recent_n=1` 获取最新交易日的开高低收。
+
+**数据源注意**：`get_hist_data` 默认 eastmoney 数据源可能不稳定，沪市股票（6开头）优先加 `"source":"sina"`；如果失败，可不指定 source 或换 `"source":"eastmoney_direct"` 重试。
+财务数据（`get_financial_metrics`、`get_balance_sheet`、`get_income_statement`、`get_cash_flow`）不受数据源影响，可直接调用。
 
 #### 外部集成工具
 

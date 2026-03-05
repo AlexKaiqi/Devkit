@@ -248,3 +248,6 @@ def browser(pw):
 - **Bearer 后面是分号**（`Bearer;token`），不是空格
 - **Docker 内网络限制多**，优先 HTTP/2 而非 QUIC
 - **Android 模拟器的 localhost ≠ 宿主机**，用 `10.0.2.2`
+- **Gateway Telegram channel 与自定义 Bot 不能同时 polling** — 同一 bot token 的 `getUpdates` 只能有一个消费者，否则 409 Conflict
+- **cron `--announce` 对 operator WebSocket 无效** — Gateway 无法反查 operator 连接对应的 Telegram 用户，解析为 `@heartbeat` 后失败
+- **禁用 Gateway channel 后 cron agent turn 也无法启动** — cron 系统内部仍要求 channel 存在，即使 `--no-deliver` 也会静默失败（job disabled but not deleted）

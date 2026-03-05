@@ -4,15 +4,21 @@
 
 ## 当前状态
 
-三渠道统一接入 OpenClaw Gateway：风铃 + Telegram Bot + OpenCami 全部走 Gateway WebSocket，共享同一个 Agent（希露菲）。端到端验证通过：基础对话、文件读写、Shell 命令、代码理解、Git 操作、邮件、Docker 管理、多步推理、会话管理。
+三渠道统一接入 OpenClaw Gateway：风铃 + Telegram Bot + OpenCami 全部走 Gateway WebSocket，共享同一个 Agent（希露菲）。端到端验证通过：基础对话、文件读写、Shell 命令、代码理解、Git 操作、邮件、Docker 管理、多步推理、会话管理、A 股数据查询（MCP）。
 
 ## 进行中
 - SearXNG Docker 网络修复（容器内 HTTPS 出站被拦截，所有上游引擎超时）
 - Google Calendar (vdirsyncer) 配置
 - Home Assistant 连接配置
 
+## 最近完成
+- [2026-03-05] 事件驱动定时器架构：新建 EventBus（asyncio pub/sub）+ Timer API（:8789）。定时器绑定 session，到期自动投递 Telegram。替代失效的 openclaw cron --announce 和 bash+sleep 临时方案。同步禁用 Gateway 内建 Telegram channel（消除 getUpdates 409 冲突）
+- [2026-03-05] AI 原生项目目录重组：四层文档模型（docs/ 语义层 → openclaw/ 人格层 → services/ 实现层 → 根目录运维层）。新建 PRODUCT.md / ARCHITECTURE.md / SERVICE_CATALOG.md / REFERENCE.md，CAPABILITIES.md 763→~100行（拆为 specs/ + TOOL_CHOICES.md），AGENTS.md 246→~120行（模板抽到 REFERENCE.md），README.md 精简为索引
+- [2026-03-05] 分层测试体系搭建：L1 单元 / L2 组件 / L3 集成 / L4 端到端，共 82 用例（77 passed, 3 skipped, 2 deselected slow）。修复 gateway_client 会话解析 bug（sessions.create → friendly_id 直接使用）和 pytest event loop 作用域不匹配问题
+
 ## 已完成
 
+- [2026-03-05] A 股数据接入：akshare-one-mcp（MCP）通过 mcporter 集成，历史行情 + 财务三表 + 财务指标端到端验证通过
 - [2026-03-05] 项目结构审查与优化：.env.example 重构（分必填/选填/LLM说明）、顶层 requirements.txt 统一依赖、setup.sh 自动生成 GATEWAY_TOKEN、check.sh 对齐新配置模型、stop.sh/sync.sh 读 .env 端口、onboarding.mdc 更新引导流程、phone.sh macOS 兼容修复
 - [2026-03-05] Gateway 客户端修复：文本重复（agent+chat 双事件去重）、新会话自动创建（resolve 失败时 fallback create）
 - [2026-03-05] Gateway 能力端到端验证：11/15 项通过，4 项为外部配置限制（gh 认证/Brave key/URL 转义/模型内容过滤）

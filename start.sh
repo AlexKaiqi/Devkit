@@ -16,6 +16,7 @@ GATEWAY_PORT="${OPENCLAW_GATEWAY_PORT:-18789}"
 STT_PORT="${STT_PROXY_PORT:-8787}"
 CAMI_PORT="${OPENCAMI_PORT:-3000}"
 GATEWAY_TOKEN="${OPENCLAW_GATEWAY_TOKEN:-}"
+TIMER_API_PORT="${TIMER_API_PORT:-8789}"
 
 # ── 辅助函数 ─────────────────────────────────
 
@@ -127,6 +128,7 @@ if [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
     OPENCLAW_GATEWAY_TOKEN="$GATEWAY_TOKEN" \
     TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
     TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-}" \
+    TIMER_API_PORT="$TIMER_API_PORT" \
     nohup "$SCRIPT_DIR/.venv/bin/python" "$SCRIPT_DIR/services/telegram-bot/bot.py" \
       > /tmp/telegram-bot.log 2>&1 &
     sleep 2
@@ -176,6 +178,7 @@ echo "  豆包 STT:  http://localhost:$STT_PORT/health"
 echo "  Gateway:   ws://localhost:$GATEWAY_PORT"
 echo "  OpenCami:  http://localhost:$CAMI_PORT"
 echo "  🎐 风铃:   http://localhost:$VOICE_PORT"
+echo "  Timer API: http://localhost:$TIMER_API_PORT/health"
 if [ -n "$LAN_IP" ]; then
   echo "  局域网:    http://$LAN_IP:$CAMI_PORT"
 fi
