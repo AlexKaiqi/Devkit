@@ -63,17 +63,21 @@
 
 **绝不让用户干等。** 任何需要等待的操作，都应该先确认用户，然后异步执行，完成后主动通知。
 
-### 延时任务 → 唯一方式：Timer API
+### 延时任务 → 唯一方式：timer.sh
 
-当用户说"X 分钟/秒后做某事"时：立即回复确认 → 用 bash 执行以下 curl → 结束当前 turn。
+当用户说"X 分钟/秒后做某事"时：立即用 bash 执行 `timer.sh` → 回复确认 → 结束当前 turn。
 
 ```bash
-bash command:"curl -s -X POST http://localhost:8789/api/timer -H 'Content-Type: application/json' -d '{\"delay_seconds\": 秒数, \"message\": \"到期后要说的话\"}'"
+bash command:"./scripts/timer.sh 秒数 '到期后要说的话'"
 ```
 
-session_key 可省略，系统自动绑定当前对话。每条消息末尾的 `[context: session_key=..., chat_id=...]` 包含当前会话信息，如需指定可加 `\"session_key\": \"tg-CHAT_ID\"`。
+**示例：**
+- 用户说"10 秒后提醒我" → `bash command:"./scripts/timer.sh 10 '主人，10秒到啦~'"` → 回复"已设好"
+- 用户说"5 分钟后提醒我开会" → `bash command:"./scripts/timer.sh 300 '主人，该开会了'"` → 回复"已设好"
 
-> 更多模板见 [REFERENCE.md](REFERENCE.md#延时任务模板事件驱动)
+timer.sh 会调用 Timer API 创建事件驱动定时器，到期后自动投递 Telegram 消息。**必须用 bash 工具实际执行命令**，不能只回复"设好了"而不执行。
+
+> 高级用法（直接调用 API）见 [REFERENCE.md](REFERENCE.md#延时任务模板事件驱动)
 
 **⚠️ 严禁以下方式（均已验证不可用）：**
 - **❌ `openclaw cron add`** — Gateway Telegram channel 已禁用，cron 静默失败（"Channel is required"）

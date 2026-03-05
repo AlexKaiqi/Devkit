@@ -73,9 +73,18 @@
 
 - `.venv/bin/khard` — 通讯录管理（vCard）
 
-#### 通知与巡检
+#### 定时通知（⚠️ 唯一方式）
 
-- `./scripts/notify.sh "消息"` — Telegram 通知推送
+- `./scripts/timer.sh <秒数> "到期后发送的消息"` — **延时通知，到期自动推送到 Telegram**
+  - 示例: `bash command:"./scripts/timer.sh 60 '主人，1分钟到了'"` — 60 秒后推送
+  - 示例: `bash command:"./scripts/timer.sh 600 '该开会了'"` — 10 分钟后推送
+  - 不阻塞当前 turn，立即返回 timer_id
+  - ❌ **禁止用 `openclaw cron add`**（已禁用，静默失败）
+  - ❌ **禁止用 `sleep`**（会阻塞对话）
+
+#### 即时通知与巡检
+
+- `./scripts/notify.sh "消息"` — Telegram 即时通知推送（立即发送，非延时）
 - `./scripts/heartbeat.sh` — 定期巡检（通常由 launchd 自动调用）
 - `./check.sh` / `./check.sh --json` — 项目状态诊断
 

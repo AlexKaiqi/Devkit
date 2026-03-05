@@ -7,22 +7,24 @@
 
 ## 延时任务模板（事件驱动）
 
-### 定时通知 → Timer API（唯一方式）
+### 定时通知 → timer.sh（推荐，最简单）
 
-最简形式（session_key 自动绑定当前对话）：
+```bash
+bash command:"./scripts/timer.sh 秒数 '到期后要说的话'"
+```
+
+示例：
+```bash
+bash command:"./scripts/timer.sh 60 '主人，1分钟到了'"
+bash command:"./scripts/timer.sh 300 '主人，该开会了'"
+```
+
+### 定时通知 → Timer API（高级用法）
 
 ```bash
 bash command:"curl -s -X POST http://localhost:8789/api/timer \
   -H 'Content-Type: application/json' \
   -d '{\"delay_seconds\": 20, \"message\": \"Hello！20 秒到啦~\"}'"
-```
-
-指定 session_key（从消息末尾的 `[context: session_key=...]` 获取）：
-
-```bash
-bash command:"curl -s -X POST http://localhost:8789/api/timer \
-  -H 'Content-Type: application/json' \
-  -d '{\"delay_seconds\": 20, \"session_key\": \"tg-6952177147\", \"message\": \"Hello！20 秒到啦~\"}'"
 ```
 
 - `session_key` 可省略，系统自动使用最近活跃的会话
