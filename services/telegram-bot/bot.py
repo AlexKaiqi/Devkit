@@ -253,11 +253,14 @@ async def chat_via_gateway(
     audit("req", chat_id=chat_id, user=user_msg,
           images=len(images) if images else 0, source="gateway")
 
+    enriched_msg = user_msg or "请看看这些内容"
+    enriched_msg += f"\n\n[context: session_key={session_key}, chat_id={chat_id}]"
+
     t0 = time.monotonic()
     full_reply = ""
     try:
         async for evt in gw.chat_send(
-            session_key, user_msg or "请看看这些内容", attachments=attachments,
+            session_key, enriched_msg, attachments=attachments,
         ):
             if evt["type"] == "text":
                 full_reply += evt["content"]
@@ -490,6 +493,15 @@ async def _on_timer_fired(event: Event) -> None:
 
 # ── Timer HTTP API ────────────────────────────────────
 
+def _default_session_key() -> str:
+    """Best-effort default: last active session, or tg-{ALLOWED_CHAT_ID}."""
+    if _chat_ids:
+        return next(iter(_chat_ids))
+    if ALLOWED_CHAT_ID:
+        return f"tg-{ALLOWED_CHAT_ID}"
+    return ""
+
+
 async def _api_create_timer(request: web.Request) -> web.Response:
     try:
         data = await request.json()
@@ -497,13 +509,13 @@ async def _api_create_timer(request: web.Request) -> web.Response:
         return web.json_response({"ok": False, "error": "invalid JSON"}, status=400)
 
     delay = data.get("delay_seconds")
-    session_key = data.get("session_key", "")
+    session_key = data.get("session_key", "") or _default_session_key()
     message = data.get("message", "")
 
     if not delay or not isinstance(delay, (int, float)) or delay <= 0:
         return web.json_response({"ok": False, "error": "delay_seconds must be > 0"}, status=400)
     if not session_key:
-        return web.json_response({"ok": False, "error": "session_key required"}, status=400)
+        return web.json_response({"ok": False, "error": "session_key required (no default available)"}, status=400)
     if not message:
         return web.json_response({"ok": False, "error": "message required"}, status=400)
 

@@ -7,19 +7,30 @@
 
 ## 延时任务模板（事件驱动）
 
-### 定时通知 → Timer API
+### 定时通知 → Timer API（唯一方式）
+
+最简形式（session_key 自动绑定当前对话）：
 
 ```bash
 bash command:"curl -s -X POST http://localhost:8789/api/timer \
   -H 'Content-Type: application/json' \
-  -d '{\"delay_seconds\": 20, \"session_key\": \"SESSION_KEY\", \"message\": \"Hello！20 秒到啦~\"}'"
+  -d '{\"delay_seconds\": 20, \"message\": \"Hello！20 秒到啦~\"}'"
 ```
 
-**关键**：`session_key` 必须填入当前会话的 session key（从 turn 上下文获取），格式如 `tg-6952177147`。
+指定 session_key（从消息末尾的 `[context: session_key=...]` 获取）：
 
+```bash
+bash command:"curl -s -X POST http://localhost:8789/api/timer \
+  -H 'Content-Type: application/json' \
+  -d '{\"delay_seconds\": 20, \"session_key\": \"tg-6952177147\", \"message\": \"Hello！20 秒到啦~\"}'"
+```
+
+- `session_key` 可省略，系统自动使用最近活跃的会话
 - 事件驱动：Timer API 创建 asyncio 定时器，到期后自动投递到绑定的 Telegram 会话
 - 不阻塞当前 turn，Agent 立即回复确认
 - 支持查询和取消：`GET /api/timers`、`DELETE /api/timer/{id}`
+
+**⚠️ 禁止使用 `openclaw cron add`，它在当前架构下静默失败。**
 
 ### 超时哨兵 → Timer API + notify.sh
 

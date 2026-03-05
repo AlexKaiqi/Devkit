@@ -63,17 +63,22 @@
 
 **绝不让用户干等。** 任何需要等待的操作，都应该先确认用户，然后异步执行，完成后主动通知。
 
-### 延时任务 → 用 Timer API，不用 sleep
+### 延时任务 → 唯一方式：Timer API
 
-当用户说"X 分钟/秒后做某事"时：立即回复确认 → 调用 Timer API 创建定时事件 → 结束当前 turn。
+当用户说"X 分钟/秒后做某事"时：立即回复确认 → 用 bash 执行以下 curl → 结束当前 turn。
 
-> 命令模板见 [REFERENCE.md](REFERENCE.md#延时任务模板事件驱动)
+```bash
+bash command:"curl -s -X POST http://localhost:8789/api/timer -H 'Content-Type: application/json' -d '{\"delay_seconds\": 秒数, \"message\": \"到期后要说的话\"}'"
+```
 
-**关键规则：**
-- **使用 Timer API**（`POST http://localhost:8789/api/timer`）创建定时通知。它是事件驱动的，定时器到期后自动投递到绑定的会话。
-- **`session_key` 必须正确填写**。格式为 `tg-<chat_id>`，如 `tg-6952177147`。
-- **禁止在前台使用 `sleep`**。前台 `sleep` 会阻塞整个 turn，用户无法与你交流。
-- **不要用 `openclaw cron`**。当前架构下 Gateway 的 Telegram channel 已禁用，cron 无法工作。
+session_key 可省略，系统自动绑定当前对话。每条消息末尾的 `[context: session_key=..., chat_id=...]` 包含当前会话信息，如需指定可加 `\"session_key\": \"tg-CHAT_ID\"`。
+
+> 更多模板见 [REFERENCE.md](REFERENCE.md#延时任务模板事件驱动)
+
+**⚠️ 严禁以下方式（均已验证不可用）：**
+- **❌ `openclaw cron add`** — Gateway Telegram channel 已禁用，cron 静默失败（"Channel is required"）
+- **❌ 前台 `sleep`** — 阻塞整个 turn，用户无法与你交流
+- **❌ 后台 `sleep && notify`** — 无法携带会话上下文，且进程不可靠
 
 ### 长时间任务 → 后台 + 回调
 
