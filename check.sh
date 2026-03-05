@@ -129,8 +129,6 @@ fi
 
 env_doubao_appid=$(check_env_var DOUBAO_APPID)
 env_doubao_token=$(check_env_var DOUBAO_TOKEN)
-env_llm_key=$(check_env_var LLM_API_KEY)
-env_llm_base=$(check_env_var LLM_BASE_URL)
 env_gw_token=$(check_env_var OPENCLAW_GATEWAY_TOKEN)
 env_hass_token=$(check_env_var HASS_TOKEN)
 env_telegram=$(check_env_var TELEGRAM_BOT_TOKEN)
@@ -139,19 +137,18 @@ env_telegram_chat=$(check_env_var TELEGRAM_CHAT_ID)
 $JSON_MODE || {
   [[ "$env_doubao_appid" == "set" ]] && echo "  ✓ DOUBAO_APPID" || echo "  ✗ DOUBAO_APPID 未设置"
   [[ "$env_doubao_token" == "set" ]] && echo "  ✓ DOUBAO_TOKEN" || echo "  ✗ DOUBAO_TOKEN 未设置"
-  [[ "$env_llm_key" == "set" ]] && echo "  ✓ LLM_API_KEY" || echo "  ✗ LLM_API_KEY 未设置"
-  [[ "$env_llm_base" == "set" ]] && echo "  ✓ LLM_BASE_URL" || echo "  - LLM_BASE_URL 未设置（可选）"
-  [[ "$env_gw_token" == "set" ]] && echo "  ✓ OPENCLAW_GATEWAY_TOKEN" || echo "  - OPENCLAW_GATEWAY_TOKEN 未设置（可选）"
+  [[ "$env_gw_token" == "set" ]] && echo "  ✓ OPENCLAW_GATEWAY_TOKEN" || echo "  ✗ OPENCLAW_GATEWAY_TOKEN 未设置"
   [[ "$env_hass_token" == "set" ]] && echo "  - HASS_TOKEN 已设置" || echo "  - HASS_TOKEN 未设置（可选）"
   [[ "$env_telegram" == "set" ]] && echo "  - TELEGRAM_BOT_TOKEN 已设置" || echo "  - TELEGRAM_BOT_TOKEN 未设置（可选）"
   [[ "$env_telegram_chat" == "set" ]] && echo "  - TELEGRAM_CHAT_ID 已设置" || echo "  - TELEGRAM_CHAT_ID 未设置（可选）"
+  echo "  ℹ LLM 配置由 openclaw onboard 管理，不在 .env 中"
 }
 
 [[ "$env_doubao_appid" == "unset" ]] && ISSUES+=("设置 DOUBAO_APPID")
 [[ "$env_doubao_token" == "unset" ]] && ISSUES+=("设置 DOUBAO_TOKEN")
-[[ "$env_llm_key" == "unset" ]] && ISSUES+=("设置 LLM_API_KEY")
+[[ "$env_gw_token" == "unset" ]] && ISSUES+=("设置 OPENCLAW_GATEWAY_TOKEN（setup.sh 首次运行会自动生成）")
 
-json_kv "env" "{$(quote exists):$env_exists,$(quote required):{$(quote DOUBAO_APPID):$(quote "$env_doubao_appid"),$(quote DOUBAO_TOKEN):$(quote "$env_doubao_token"),$(quote LLM_API_KEY):$(quote "$env_llm_key")},$(quote optional):{$(quote LLM_BASE_URL):$(quote "$env_llm_base"),$(quote OPENCLAW_GATEWAY_TOKEN):$(quote "$env_gw_token"),$(quote HASS_TOKEN):$(quote "$env_hass_token"),$(quote TELEGRAM_BOT_TOKEN):$(quote "$env_telegram"),$(quote TELEGRAM_CHAT_ID):$(quote "$env_telegram_chat")}}"
+json_kv "env" "{$(quote exists):$env_exists,$(quote required):{$(quote DOUBAO_APPID):$(quote "$env_doubao_appid"),$(quote DOUBAO_TOKEN):$(quote "$env_doubao_token"),$(quote OPENCLAW_GATEWAY_TOKEN):$(quote "$env_gw_token")},$(quote optional):{$(quote HASS_TOKEN):$(quote "$env_hass_token"),$(quote TELEGRAM_BOT_TOKEN):$(quote "$env_telegram"),$(quote TELEGRAM_CHAT_ID):$(quote "$env_telegram_chat")}}"
 
 $JSON_MODE || echo ""
 
@@ -170,7 +167,7 @@ if [ -d "$SCRIPT_DIR/.venv" ] && [ -x "$SCRIPT_DIR/.venv/bin/python" ]; then
   venv_python=$("$SCRIPT_DIR/.venv/bin/python" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1)
   $JSON_MODE || echo "  ✓ .venv 存在 (Python $venv_python)"
 
-  for pkg in playwright paperscout papis khard khal vdirsyncer homeassistant-cli pandas numpy scipy matplotlib; do
+  for pkg in fastapi uvicorn aiohttp websockets cryptography python-telegram-bot playwright paperscout papis khard khal vdirsyncer homeassistant-cli pandas numpy scipy matplotlib; do
     result=$(check_pip_pkg "$pkg")
     pkg_entries+=("$(quote "$pkg"):$(quote "$result")")
   done

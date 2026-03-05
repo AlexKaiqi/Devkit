@@ -2,7 +2,11 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 TARGET="$HOME/.openclaw/workspace"
+
+[ -f "$PROJECT_DIR/.env" ] && { set -a; source "$PROJECT_DIR/.env" 2>/dev/null; set +a; }
+OPENCLAW_GATEWAY_PORT="${OPENCLAW_GATEWAY_PORT:-18789}"
 
 FILES=(IDENTITY.md SOUL.md USER.md AGENTS.md TOOLS.md HEARTBEAT.md MEMORY.md)
 
@@ -48,7 +52,7 @@ fi
 echo ""
 if [ "$changed" -gt 0 ]; then
   echo "$changed file(s) synced to $TARGET"
-  if lsof -i :18789 >/dev/null 2>&1; then
+  if lsof -i ":$OPENCLAW_GATEWAY_PORT" >/dev/null 2>&1; then
     echo ""
     echo "Gateway is running. Restart to apply changes:"
     echo "  openclaw gateway restart"

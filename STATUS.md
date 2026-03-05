@@ -4,14 +4,21 @@
 
 ## 当前状态
 
-双渠道对话已上线：风铃（语音网页端）+ Telegram Bot（文字+语音+图片+视频）。支持视觉理解（图片/视频帧），回复区分文本与附件。
+三渠道统一接入 OpenClaw Gateway：风铃 + Telegram Bot + OpenCami 全部走 Gateway WebSocket，共享同一个 Agent（希露菲）。端到端验证通过：基础对话、文件读写、Shell 命令、代码理解、Git 操作、邮件、Docker 管理、多步推理、会话管理。
 
 ## 进行中
+- SearXNG Docker 网络修复（容器内 HTTPS 出站被拦截，所有上游引擎超时）
 - Google Calendar (vdirsyncer) 配置
 - Home Assistant 连接配置
 
 ## 已完成
 
+- [2026-03-05] 项目结构审查与优化：.env.example 重构（分必填/选填/LLM说明）、顶层 requirements.txt 统一依赖、setup.sh 自动生成 GATEWAY_TOKEN、check.sh 对齐新配置模型、stop.sh/sync.sh 读 .env 端口、onboarding.mdc 更新引导流程、phone.sh macOS 兼容修复
+- [2026-03-05] Gateway 客户端修复：文本重复（agent+chat 双事件去重）、新会话自动创建（resolve 失败时 fallback create）
+- [2026-03-05] Gateway 能力端到端验证：11/15 项通过，4 项为外部配置限制（gh 认证/Brave key/URL 转义/模型内容过滤）
+- [2026-03-05] 风铃/Telegram 接入 OpenClaw Gateway：不再直连 LLM，通过 Gateway WebSocket 协议与 Agent 通信，具备完整工具链能力
+- [2026-03-05] 新建 gateway_client.py：Ed25519 设备认证 + 挑战-响应握手 + 流式事件 + 会话管理
+- [2026-03-05] 风铃新增文字输入框，条件 TTS（语音输入→语音回复，文字输入→纯文字），LLM 切换至 gemini-2.5-flash（延迟降 42%）
 - [2026-03-05] TTS 引擎升级至豆包语音合成大模型，默认音色「甜美小源」，前端音色列表替换为 25 个大模型音色
 - [2026-03-05] 图片/视频输入支持：风铃(上传/粘贴/拖拽) + Telegram(发图/发视频)，视频自动抽帧，VISION_MODEL 独立配置
 - [2026-03-05] 回复内容区分文本/附件：对话文字朗读，代码块独立渲染（风铃显示代码框+复制按钮，Telegram 发独立消息）

@@ -65,12 +65,15 @@ case "$ACTION" in
       echo "  跳过 Chrome 首次设置..."
       "$ADB" -s emulator-5554 shell input tap 540 2136 2>/dev/null; sleep 2
       for _ in 1 2 3; do
-        BOUNDS=$("$ADB" -s emulator-5554 shell uiautomator dump /dev/tty 2>/dev/null | grep -oP 'text="No thanks".*?bounds="\[\K[0-9,\]\[]+' || true)
+        BOUNDS=$("$ADB" -s emulator-5554 shell uiautomator dump /dev/tty 2>/dev/null \
+          | grep -o 'text="No thanks"[^>]*' \
+          | grep -oE 'bounds="\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]"' || true)
         if [ -n "$BOUNDS" ]; then
-          X=$(echo "$BOUNDS" | grep -oP '^\d+' | head -1)
-          X2=$(echo "$BOUNDS" | grep -oP '\[\K\d+' | tail -1)
-          Y=$(echo "$BOUNDS" | grep -oP ',\K\d+' | head -1)
-          Y2=$(echo "$BOUNDS" | grep -oP ',\K\d+' | tail -1)
+          NUMS=$(echo "$BOUNDS" | grep -oE '[0-9]+')
+          X=$(echo "$NUMS" | sed -n '1p')
+          Y=$(echo "$NUMS" | sed -n '2p')
+          X2=$(echo "$NUMS" | sed -n '3p')
+          Y2=$(echo "$NUMS" | sed -n '4p')
           CX=$(( (X + X2) / 2 )); CY=$(( (Y + Y2) / 2 ))
           "$ADB" -s emulator-5554 shell input tap "$CX" "$CY" 2>/dev/null; sleep 2
         fi

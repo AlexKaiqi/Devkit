@@ -7,12 +7,13 @@ AI 原生的个人数字分身平台。语音或文字下达指令 → AI 分身
 ```
 用户
   │
-  ├── 风铃 (:3001)              ← 语音对话（按住说话 · 流式朗读 · 大模型音色）
-  ├── Telegram Bot              ← 即时通讯（文字 + 语音，随时随地）
+  ├── 风铃 (:3001)              ← 语音+文字（语音问语音答 · 打字问文字答）
+  ├── Telegram Bot              ← 即时通讯（文字 + 语音 + 图片 + 视频）
   └── OpenCami (:3000)          ← 全功能聊天界面（任务调度 · 工具调用）
         │
-        ▼
-OpenClaw Gateway (:18789)       ← AI 分身核心，全权代理，调度一切
+        ├── 全部通过 WebSocket 接入 ──┐
+        ▼                            ▼
+OpenClaw Gateway (:18789)       ← AI 分身核心（希露菲），全权代理，调度一切
   │
   ├── Cursor CLI                ← cursor agent -p "..." 执行开发
   │     └── Devkit 仓库          ← 本地文件系统
@@ -121,16 +122,24 @@ openclaw onboard
 
 ## 使用方式
 
-### 风铃 · 语音对话（推荐日常使用）
+### 风铃 · 双模式对话（推荐日常使用）
 
-浏览器打开 `http://localhost:3001`。
+浏览器打开 `http://localhost:3001`。两种输入方式，交互行为自动匹配：
 
-- **按住说话**：长按麦克风按钮（或按住空格键）录音，松开自动发送
-- **发送图片/视频**：点击 📎 按钮、粘贴剪贴板、或拖拽文件到聊天区
-- **图片+语音**：先添加图片，再按住说话，AI 同时理解图片和语音内容
-- **流式朗读**：AI 回复逐句合成语音，边生成边播放，无需等全文
-- **文本/附件分区**：对话内容会被朗读，代码和命令只显示不朗读（带语法标签和复制按钮）
-- **大模型音色**：右上角可切换豆包语音合成大模型音色（25+ 种，含角色扮演/多情感）
+| 输入方式 | 操作 | AI 回复方式 |
+|---------|------|-----------|
+| **语音** | 按住麦克风说话（或按住空格键） | 文字 **+** 语音朗读（逐句流式） |
+| **文字** | 输入框打字，Enter 发送 | 仅文字（不触发 TTS） |
+
+其他交互：
+
+- **发送图片/视频**：点击 📎 按钮、Ctrl+V 粘贴、或拖拽到聊天区
+- **图片+语音**：先添加图片，再按住说话，AI 同时理解图片和语音
+- **文本/附件分区**：对话被朗读，代码/命令只显示不朗读（带语法标签和复制按钮）
+- **停止生成**：点击红色停止按钮或按 Esc 键，立即停止生成和语音播放
+- **会话保持**：页面刷新不丢失聊天记录（同一标签页内持久化）
+- **清空对话**：左上角「清空」按钮重置会话
+- **大模型音色**：右上角可切换豆包语音合成大模型音色（25+ 种）
 
 ### Telegram Bot · 随时随地
 
@@ -214,26 +223,17 @@ OpenCami 设置中 STT Provider 选择 **OpenAI** 或 **Auto**，语音会通过
 
 ### 语音合成 (TTS)
 
-同一 DOUBAO_APPID/TOKEN 可同时用于 STT 和 TTS，支持两代模型：
+同一 DOUBAO_APPID/TOKEN 同时用于 STT 和 TTS。当前使用**豆包语音合成大模型**（V1 API + `volcano_tts` cluster）：
 
-**标准 TTS (V1 API)**：
+| voice_type | 名称 | 场景 |
+|---|---|---|
+| `zh_female_tianmeixiaoyuan_moon_bigtts` | 甜美小源（默认） | 通用 |
+| `zh_female_cancan_mars_bigtts` | 灿灿 | 通用 |
+| `zh_female_sajiaonvyou_moon_bigtts` | 柔美女友 | 角色扮演 |
+| `ICL_zh_female_keainvsheng_tob` | 可爱女生 | 角色扮演 |
 
-| voice_type | 名称 |
-|---|---|
-| `BV700_V2_streaming` | 灿灿（活力女声） |
-| `BV001_streaming` | 通用女声 |
-| `BV002_streaming` | 通用男声 |
-
-**SeedTTS 2.0 (V3 API)**  — 更自然的韵律，支持语音指令控制情感：
-
-| speaker | 名称 |
-|---|---|
-| `zh_female_vv_uranus_bigtts` | vivi 2.0（通用，推荐） |
-| `saturn_zh_female_cancan_tob` | 知性灿灿（角色扮演） |
-| `saturn_zh_female_keainvsheng_tob` | 可爱女生（角色扮演） |
-| `zh_male_ruyayichen_saturn_bigtts` | 儒雅逸辰（视频配音） |
-
-> 2.0 音色需在火山引擎控制台开通"豆包语音合成模型2.0"并下单对应音色。
+风铃右上角可在 25+ 种大模型音色中切换（含通用/角色扮演/多情感/男声）。
+可通过 `.env` 中 `TTS_VOICE` 设置默认音色。
 
 ## 项目结构
 
@@ -263,17 +263,17 @@ Devkit/
 │   ├── notify.sh             #   Telegram 通知推送
 │   └── heartbeat.sh          #   定期巡检（launchd 调用）
 ├── services/
+│   ├── gateway_client.py     # OpenClaw Gateway Python 客户端（风铃+Telegram 共用）
 │   ├── doubao-stt-proxy/     # 豆包语音识别代理
 │   │   ├── server.py          #   FastAPI (Whisper API → 火山引擎 ASR, 自动 ffmpeg 转码)
 │   │   ├── start.sh           #   独立启动脚本
 │   │   ├── transcribe.sh      #   CLI 转写工具
 │   │   └── requirements.txt
 │   ├── voice-chat/           # 风铃（语音对话 Web 客户端）
-│   │   ├── server.py          #   FastAPI (STT + LLM 流式 + 豆包 TTS + 审计)
-│   │   ├── static/index.html  #   前端（push-to-talk + 流式朗读 + 附件渲染）
-│   │   └── requirements.txt
+│   │   ├── server.py          #   FastAPI (STT + Gateway 流式 + 豆包 TTS + 审计)
+│   │   └── static/index.html  #   前端（push-to-talk + 流式朗读 + 工具状态 + 附件渲染）
 │   ├── telegram-bot/         # Telegram Bot
-│   │   └── bot.py             #   python-telegram-bot (文字 + 语音 + 豆包 TTS + 审计)
+│   │   └── bot.py             #   python-telegram-bot (Gateway + 豆包 STT/TTS + 审计)
 │   ├── searxng/              # SearXNG 搜索引擎配置
 │   │   └── settings.yml       #   Docker 挂载的配置（启用 JSON API）
 │   └── heartbeat/            # 定时巡检
@@ -322,16 +322,9 @@ openclaw gateway restart        # 重启生效
 
 ### LLM 配置
 
-在 `.env` 中配置 LLM 提供商（任意 OpenAI 兼容接口）：
+LLM 由 OpenClaw Gateway 统一管理。首次运行 `openclaw onboard` 时选择 LLM provider。
 
-```bash
-LLM_API_KEY=sk-xxx              # API Key
-LLM_BASE_URL=https://xxx/v1     # API 基础地址
-LLM_MODEL=gpt-4o                # 主模型（对话、任务拆解）
-VISION_MODEL=gpt-4o             # 视觉模型（图片/视频理解）
-```
-
-支持的提供商示例：OpenAI、Anthropic（通过代理）、Gemini（通过代理）、DeepSeek、本地 Ollama 等，只要兼容 OpenAI Chat Completions API 即可。
+风铃和 Telegram Bot 不直接调用 LLM — 它们通过 Gateway WebSocket 协议将消息发送给 Agent（希露菲），由 Gateway 选择模型并调度工具。
 
 ### OpenClaw 运行时配置
 
@@ -394,9 +387,20 @@ AI 的回复自动区分**对话文本**和**附件**（代码、命令、配置
 
 代码块用 ` ``` ` 标记，AI 已被引导遵循此约定。
 
+### 条件语音：语音问语音答
+
+输入方式自动决定回复形态，避免不必要的 TTS 延迟：
+
+| 输入 | AI 回复 | 原因 |
+|------|--------|------|
+| 语音（按住说话） | 文字 + 逐句语音朗读 | 用户在移动/开车，需要听 |
+| 文字（打字发送） | 纯文字 | 用户在看屏幕，不需要声音 |
+| Telegram 语音 | 文字 + TTS 语音消息 | 同语音逻辑 |
+| Telegram 文字 | 纯文字 | 同文字逻辑 |
+
 ### 流式语音合成
 
-风铃的 TTS 不等全文生成完毕，而是逐句流式合成：
+语音回复时，TTS 不等全文生成完毕，而是逐句流式合成：
 
 1. LLM 开始流式输出
 2. 检测到完整句子（句号/问号/感叹号）后立即提交 TTS
@@ -414,16 +418,19 @@ AI 的回复自动区分**对话文本**和**附件**（代码、命令、配置
 | 视频处理 | 服务端用 ffmpeg 抽取关键帧 | 同左 |
 | 图片+语音 | 先添加图片，再按住说话 | 图片附加 caption |
 
-视觉模型通过 `VISION_MODEL` 独立配置，与对话 `LLM_MODEL` 可以不同。
+视觉模型由 Gateway 统一管理，无需在渠道侧单独配置。
 
-### 多渠道共享后端
+### 统一 Agent 后端
 
-风铃和 Telegram Bot 共用同一套基础设施：
+风铃、Telegram Bot、OpenCami 三个渠道全部接入同一个 OpenClaw Gateway：
 
-- **同一个 LLM / 视觉模型**（通过 `.env` 统一配置）
+- **同一个 Agent（希露菲）**：人设、记忆、工具链全部共享
+- **完整工具能力**：文件读写、Shell 命令、代码理解、Git 操作、邮件、Docker 管理等（端到端验证）
+- **渠道无差异**：无论从哪个渠道提问，Agent 的能力完全一致
 - **同一个 STT 引擎**（豆包 BigModel ASR，`:8787`）
-- **同一个 TTS 引擎**（豆包语音合成 V1 API）
+- **同一个 TTS 引擎**（豆包语音合成大模型，V1 API）
 - **同一份审计日志**（`data/voice-audit/`，`channel` 字段区分来源）
+- **会话隔离**：各渠道独立 session，上下文互不干扰
 
 ## 常见问题
 

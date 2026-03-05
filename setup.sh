@@ -41,19 +41,24 @@ echo ""
 echo "[2/9] 检查 .env..."
 if [ ! -f "$SCRIPT_DIR/.env" ]; then
   cp "$SCRIPT_DIR/.env.example" "$SCRIPT_DIR/.env"
+  # Auto-generate OPENCLAW_GATEWAY_TOKEN
+  TOKEN=$(openssl rand -hex 16 2>/dev/null || python3 -c "import secrets; print(secrets.token_hex(16))")
+  sed -i '' "s/^OPENCLAW_GATEWAY_TOKEN=$/OPENCLAW_GATEWAY_TOKEN=$TOKEN/" "$SCRIPT_DIR/.env"
   echo "  已创建 .env（从 .env.example 复制）"
+  echo "  已自动生成 OPENCLAW_GATEWAY_TOKEN"
   echo "  ⚠️  请编辑 .env 填入实际凭据，然后重新运行此脚本"
   echo ""
   echo "  必填项:"
-  echo "    DOUBAO_APPID       — 火山引擎语音识别 AppID"
-  echo "    DOUBAO_TOKEN       — 火山引擎语音识别 Token"
-  echo "    LLM_API_KEY        — LLM API Key (OpenAI 兼容)"
+  echo "    DOUBAO_APPID       — 火山引擎语音 AppID"
+  echo "    DOUBAO_TOKEN       — 火山引擎语音 Token"
+  echo ""
+  echo "  LLM 配置在后续 openclaw onboard 步骤中完成（不在 .env 里）"
   exit 0
 fi
 
 source "$SCRIPT_DIR/.env"
 
-required_vars=(DOUBAO_APPID DOUBAO_TOKEN)
+required_vars=(DOUBAO_APPID DOUBAO_TOKEN OPENCLAW_GATEWAY_TOKEN)
 for var in "${required_vars[@]}"; do
   if [ -z "${!var:-}" ]; then
     echo "  ✗ $var 未设置，请编辑 .env"
@@ -79,11 +84,7 @@ fi
 
 echo "  安装 Python 依赖..."
 "$SCRIPT_DIR/.venv/bin/pip" install -q --upgrade pip
-"$SCRIPT_DIR/.venv/bin/pip" install -q \
-  -r "$SCRIPT_DIR/services/doubao-stt-proxy/requirements.txt" \
-  pandas numpy scipy matplotlib \
-  playwright paperscout arxivy dblpcli s2cli \
-  papis khard khal vdirsyncer homeassistant-cli
+"$SCRIPT_DIR/.venv/bin/pip" install -q -r "$SCRIPT_DIR/requirements.txt"
 echo "  ✓ Python 依赖已安装"
 echo ""
 

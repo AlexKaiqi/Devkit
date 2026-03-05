@@ -38,16 +38,18 @@ Cursor IDE: https://www.cursor.com/
 
 ### 阶段 2：环境配置（check.sh → env）
 
-如果 `.env` 不存在，先创建：`cp .env.example .env`
+如果 `.env` 不存在，运行 `./setup.sh` 会自动从 `.env.example` 创建并生成 `OPENCLAW_GATEWAY_TOKEN`。
 
-然后逐个引导必填项：
+逐个引导必填项：
 
 - **DOUBAO_APPID / DOUBAO_TOKEN**: 火山引擎控制台 → 语音技术 → 语音识别大模型，创建应用获取
   - 控制台地址: https://console.volcengine.com/speech/service/8
   - 同一 APPID/TOKEN 可同时用于 STT 和 TTS
-- **LLM_API_KEY**: 任意 OpenAI 兼容服务商的 API Key
-  - 推荐：OpenAI、DeepSeek、Anthropic（通过 OpenAI 代理）、本地 Ollama
-  - 同时设置 LLM_BASE_URL 指向对应服务商的 API 地址
+- **OPENCLAW_GATEWAY_TOKEN**: 风铃/Telegram 连接 Gateway 的共享密钥
+  - `setup.sh` 首次创建 `.env` 时自动生成
+  - 运行 `openclaw onboard` 后需确认此值与 `~/.openclaw/openclaw.json` 中 `gateway.token` 一致
+
+> **注意**: LLM 配置（API Key、模型选择）不在 `.env` 中，而是通过阶段 4 的 `openclaw onboard` 交互式完成。
 
 ### 阶段 3：安装（setup.sh）
 
@@ -59,14 +61,18 @@ Cursor IDE: https://www.cursor.com/
 
 这会自动完成：Python .venv 创建、pip 依赖安装、Homebrew CLI 工具安装、Playwright 浏览器下载、OpenClaw/OpenCami 安装。
 
-### 阶段 4：OpenClaw 配置
+### 阶段 4：OpenClaw 配置（含 LLM）
 
 如果 `~/.openclaw/openclaw.json` 不存在：
 
 ```bash
-openclaw onboard          # 交互式配置（选 LLM provider、Channel 等）
+openclaw onboard          # 交互式配置（选 LLM provider、API Key、模型等）
 ./openclaw/sync.sh         # 同步 Agent 人设到运行时
 ```
+
+`openclaw onboard` 会引导选择 LLM provider（OpenAI、DeepSeek、Anthropic、本地 Ollama 等），填入 API Key 和 Base URL。这取代了原来 `.env` 中的 `LLM_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL`。
+
+完成后确认 `.env` 中 `OPENCLAW_GATEWAY_TOKEN` 与 `~/.openclaw/openclaw.json` 中的 token 一致。
 
 ### 阶段 5：可选配置
 
@@ -86,7 +92,8 @@ openclaw onboard          # 交互式配置（选 LLM provider、Channel 等）
   - 设置 .env 中的 HASS_SERVER 和 HASS_TOKEN
 
 - **Telegram Bot**: 通过 @BotFather 创建
-  - 设置 .env 中的 TELEGRAM_BOT_TOKEN
+  - 设置 .env 中的 TELEGRAM_BOT_TOKEN 和 TELEGRAM_CHAT_ID
+  - CHAT_ID 获取方式：给 Bot 发一条消息后访问 `https://api.telegram.org/bot<TOKEN>/getUpdates`，从返回 JSON 中找 `result[0].message.chat.id`
 
 ### 阶段 6：验证
 

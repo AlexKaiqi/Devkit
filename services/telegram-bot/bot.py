@@ -1,6 +1,6 @@
 """
-Telegram Bot for 希露菲 — text + voice conversations.
-Shares the same STT/LLM/TTS backend as 风铃 (web voice client).
+Telegram Bot for 希露菲 — text + voice + image + video conversations.
+Routes all chat through OpenClaw Gateway for full Agent capabilities.
 """
 
 import base64
@@ -15,7 +15,6 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
-from openai import AsyncOpenAI
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -26,6 +25,10 @@ from telegram.ext import (
 )
 import re
 import aiohttp
+
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from gateway_client import GatewayClient
 
 logging.basicConfig(
     format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
@@ -45,27 +48,19 @@ DOUBAO_TTS_URL = "https://openspeech.bytedance.com/api/v1/tts"
 TTS_VOICE = os.environ.get("TTS_VOICE", "zh_female_tianmeixiaoyuan_moon_bigtts")
 TTS_SPEED = float(os.environ.get("TTS_SPEED", "1.25"))
 
-llm = AsyncOpenAI(
-    api_key=os.environ.get("LLM_API_KEY", ""),
-    base_url=os.environ.get("LLM_BASE_URL", "https://api.openai.com/v1"),
+# ── Gateway client (replaces direct LLM) ─────────────
+
+GATEWAY_PORT = os.environ.get("OPENCLAW_GATEWAY_PORT", "18789")
+GATEWAY_TOKEN = os.environ.get("OPENCLAW_GATEWAY_TOKEN", "")
+
+gw = GatewayClient(
+    gateway_url=f"ws://127.0.0.1:{GATEWAY_PORT}",
+    token=GATEWAY_TOKEN,
+    client_display_name="Telegram Bot",
+    device_name="telegram-bot",
 )
-LLM_MODEL = os.environ.get("LLM_MODEL", "gpt-4o")
-VISION_MODEL = os.environ.get("VISION_MODEL", LLM_MODEL)
 
-SYSTEM_PROMPT = """你是希露菲，主人的专属女仆。你只为主人一个人服务，是主人最信赖的贴身侍从。
-
-性格：温柔恭顺、细心周到。日常体贴入微，做事沉稳高效。称呼用户为「主人」。偶尔流露小小的关心和撒娇。
-
-规则：
-- 用中文回复，技术术语可保留英文
-- 语气温柔自然，像贴心的女仆对主人说话
-- 不过度谄媚也不生硬
-- 如果是简短的对话，回复控制在1-3句话
-
-回复格式：
-- 对话部分用自然语言，不用 markdown 格式
-- 如果需要给出代码、命令、配置等结构化内容，用 ``` 代码块包裹
-- 代码块外的文字是对话（会被朗读），代码块内的是附件（只显示不朗读）"""
+_session_keys: dict[int, str] = {}
 
 # ── Audit ────────────────────────────────────────────
 
@@ -93,15 +88,12 @@ def audit(event: str, **kwargs):
         log.warning("audit write failed: %s", e)
 
 
-# ── Session memory ───────────────────────────────────
-
-sessions: dict[int, list] = {}
+# ── Helpers ──────────────────────────────────────────
 
 CODE_BLOCK_RE = re.compile(r"```(\w*)\n(.*?)```", re.DOTALL)
 
 
 def parse_response(text: str) -> dict:
-    """Split LLM response into spoken text and code attachments."""
     attachments = []
     for m in CODE_BLOCK_RE.finditer(text):
         attachments.append({
@@ -113,14 +105,6 @@ def parse_response(text: str) -> dict:
     spoken = re.sub(r"\n{3,}", "\n\n", spoken)
     return {"spoken": spoken, "attachments": attachments}
 
-
-def get_history(chat_id: int) -> list:
-    if chat_id not in sessions:
-        sessions[chat_id] = []
-    return sessions[chat_id]
-
-
-# ── STT / TTS helpers ───────────────────────────────
 
 async def stt_transcribe(audio_bytes: bytes, filename: str = "audio.ogg") -> str:
     form = aiohttp.FormData()
@@ -170,7 +154,6 @@ async def tts_synthesize(text: str, voice: str = "") -> bytes | None:
 
 
 def extract_video_frames(video_bytes: bytes, max_frames: int = 4) -> list[str]:
-    """Extract evenly-spaced frames from video, return as base64 data URLs."""
     with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
         tmp.write(video_bytes)
         video_path = tmp.name
@@ -191,15 +174,15 @@ def extract_video_frames(video_bytes: bytes, max_frames: int = 4) -> list[str]:
              f"{out_dir}/f%03d.jpg"],
             capture_output=True, timeout=60,
         )
-        from pathlib import Path as P
-        for fp in sorted(P(out_dir).glob("f*.jpg")):
+        for fp in sorted(Path(out_dir).glob("f*.jpg")):
             b64 = base64.b64encode(fp.read_bytes()).decode()
             frames.append(f"data:image/jpeg;base64,{b64}")
             fp.unlink()
     except Exception as e:
         log.warning("frame extraction failed: %s", e)
     finally:
-        os.unlink(video_path) if os.path.exists(video_path) else None
+        if os.path.exists(video_path):
+            os.unlink(video_path)
         try:
             os.rmdir(out_dir)
         except OSError:
@@ -207,44 +190,57 @@ def extract_video_frames(video_bytes: bytes, max_frames: int = 4) -> list[str]:
     return frames
 
 
-async def chat_with_llm(chat_id: int, user_msg: str,
-                        images: list[str] | None = None) -> str:
-    history = get_history(chat_id)
-    model = LLM_MODEL
+async def _resolve_session(chat_id: int) -> str:
+    if chat_id in _session_keys:
+        return _session_keys[chat_id]
+    try:
+        await gw.ensure_connected()
+        friendly = f"telegram-{chat_id}"
+        sk = await gw.resolve_session(friendly)
+        _session_keys[chat_id] = sk
+        return sk
+    except Exception as e:
+        log.error("Failed to resolve session: %s", e)
+        sk = f"telegram-{chat_id}"
+        _session_keys[chat_id] = sk
+        return sk
 
+
+async def chat_via_gateway(
+    chat_id: int, user_msg: str, images: list[str] | None = None,
+) -> str:
+    """Send message through Gateway and collect full response."""
+    session_key = await _resolve_session(chat_id)
+
+    attachments = None
     if images:
-        content = [{"type": "text", "text": user_msg or "请看看这些内容"}]
+        attachments = []
         for url in images:
-            content.append({"type": "image_url", "image_url": {"url": url}})
-        user_content = content
-        history.append({"role": "user", "content": f"[发送了{len(images)}张图片] {user_msg}"})
-        model = VISION_MODEL
-    else:
-        user_content = user_msg
-        history.append({"role": "user", "content": user_msg})
-
-    msgs = (
-        [{"role": "system", "content": SYSTEM_PROMPT}]
-        + history[-20:][:-1]
-        + [{"role": "user", "content": user_content}]
-    )
+            if url.startswith("data:"):
+                header, b64data = url.split(",", 1)
+                mime = header.split(":")[1].split(";")[0]
+                attachments.append({"mimeType": mime, "content": b64data})
 
     t0 = time.monotonic()
+    full_reply = ""
     try:
-        resp = await llm.chat.completions.create(
-            model=model, messages=msgs, max_tokens=2000,
-        )
-        reply = resp.choices[0].message.content or ""
+        async for evt in gw.chat_send(
+            session_key, user_msg or "请看看这些内容", attachments=attachments,
+        ):
+            if evt["type"] == "text":
+                full_reply += evt["content"]
+            elif evt["type"] == "done":
+                full_reply = evt.get("full_text", full_reply)
+            elif evt["type"] == "error":
+                full_reply = f"抱歉，出了点问题：{evt['content']}"
     except Exception as e:
-        reply = f"抱歉，出了点问题：{e}"
-        log.error("LLM error: %s", e)
+        full_reply = f"抱歉，出了点问题：{e}"
+        log.error("Gateway chat error: %s", e)
 
     elapsed = round((time.monotonic() - t0) * 1000)
-    history.append({"role": "assistant", "content": reply})
-
-    audit("chat", chat_id=chat_id, user=user_msg, assistant=reply,
-          model=model, images=len(images) if images else 0, ms=elapsed)
-    return reply
+    audit("chat", chat_id=chat_id, user=user_msg, assistant=full_reply[:500],
+          images=len(images) if images else 0, ms=elapsed, source="gateway")
+    return full_reply
 
 
 # ── Handlers ─────────────────────────────────────────
@@ -263,9 +259,7 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     )
 
 
-
 async def _send_code_block(update: Update, lang: str, code: str):
-    """Send code as pre-formatted text, falling back to plain if markdown fails."""
     try:
         escaped = code.replace("\\", "\\\\").replace("`", "\\`")
         await update.message.reply_text(
@@ -283,7 +277,7 @@ async def handle_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not user_msg:
         return
 
-    reply = await chat_with_llm(update.effective_chat.id, user_msg)
+    reply = await chat_via_gateway(update.effective_chat.id, user_msg)
     parsed = parse_response(reply)
     if parsed["spoken"]:
         await update.message.reply_text(parsed["spoken"])
@@ -304,7 +298,6 @@ async def handle_voice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     tg_file = await ctx.bot.get_file(voice.file_id)
     voice_bytes = await tg_file.download_as_bytearray()
 
-    # STT
     stt_t0 = time.monotonic()
     user_text = await stt_transcribe(bytes(voice_bytes), "audio.ogg")
     stt_ms = round((time.monotonic() - stt_t0) * 1000)
@@ -316,18 +309,15 @@ async def handle_voice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     audit("stt", chat_id=update.effective_chat.id, text=user_text, ms=stt_ms)
 
-    # LLM
-    reply = await chat_with_llm(update.effective_chat.id, user_text)
+    reply = await chat_via_gateway(update.effective_chat.id, user_text)
     parsed = parse_response(reply)
     spoken = parsed["spoken"]
 
-    # Send text reply (spoken part first, then code attachments)
     display_text = f"🎤 {user_text}\n\n{spoken}" if spoken else f"🎤 {user_text}"
     await update.message.reply_text(display_text)
     for att in parsed["attachments"]:
         await _send_code_block(update, att["language"], att["content"])
 
-    # TTS only for spoken text
     if spoken:
         tts_t0 = time.monotonic()
         audio_data = await tts_synthesize(spoken)
@@ -342,8 +332,7 @@ async def handle_voice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             )
 
     total_ms = round((time.monotonic() - t0) * 1000)
-    log.info("Voice round-trip: stt=%dms llm+tts=%dms total=%dms",
-             stt_ms, total_ms - stt_ms, total_ms)
+    log.info("Voice round-trip: stt=%dms total=%dms", stt_ms, total_ms)
 
 
 async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -361,7 +350,7 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     audit("photo", chat_id=update.effective_chat.id, caption=caption,
           photo_size=len(photo_bytes))
 
-    reply = await chat_with_llm(update.effective_chat.id, caption, images=[data_url])
+    reply = await chat_via_gateway(update.effective_chat.id, caption, images=[data_url])
     parsed = parse_response(reply)
     if parsed["spoken"]:
         await update.message.reply_text(parsed["spoken"])
@@ -391,11 +380,9 @@ async def handle_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     audit("video", chat_id=update.effective_chat.id, caption=caption,
           video_size=len(video_bytes), frames=len(frames))
 
-    reply = await chat_with_llm(
-        update.effective_chat.id,
-        f"{caption}\n（视频截取了{len(frames)}帧）" if caption else f"请看看这个视频（截取了{len(frames)}帧）",
-        images=frames,
-    )
+    msg = (f"{caption}\n（视频截取了{len(frames)}帧）" if caption
+           else f"请看看这个视频（截取了{len(frames)}帧）")
+    reply = await chat_via_gateway(update.effective_chat.id, msg, images=frames)
     parsed = parse_response(reply)
     if parsed["spoken"]:
         await update.message.reply_text(parsed["spoken"])
@@ -406,7 +393,7 @@ async def handle_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 # ── Main ─────────────────────────────────────────────
 
 def main():
-    log.info("Starting Telegram bot (model=%s, chat_id=%s)", LLM_MODEL, ALLOWED_CHAT_ID)
+    log.info("Starting Telegram bot (gateway=:%s, chat_id=%s)", GATEWAY_PORT, ALLOWED_CHAT_ID)
 
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", cmd_start))

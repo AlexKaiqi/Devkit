@@ -1,0 +1,35 @@
+# Devkit Python 依赖（所有服务的统一来源）
+# 安装: .venv/bin/pip install -r requirements.txt
+
+# ── 核心服务 ──────────────────────────────────
+fastapi
+uvicorn[standard]
+aiohttp
+python-multipart
+
+# ── Gateway 客户端 ────────────────────────────
+websockets
+cryptography
+
+# ── Telegram Bot ──────────────────────────────
+python-telegram-bot
+
+# ── 科研工具 ──────────────────────────────────
+pandas
+numpy
+scipy
+matplotlib
+paperscout
+arxivy
+dblpcli
+s2cli
+papis
+
+# ── Web / GUI 自动化 ─────────────────────────
+playwright
+
+# ── 日历 / 通讯录 / 智能家居 ─────────────────
+khal
+vdirsyncer
+khard
+homeassistant-cli

@@ -7,6 +7,11 @@
 - **Python 虚拟环境:** 项目内 `.venv/`（Python 3.12），所有 Python 命令通过 `.venv` 执行
 - **Cursor CLI:** `cursor agent -p "<prompt>"` — 调用本地 Cursor Agent 执行开发
 
+## Shell 使用规范
+
+- 含 `?`、`&`、`+`、`*`、`#` 等特殊字符的 URL **必须用单引号包裹**，否则 zsh 会将其解析为 glob/变量
+- 用户要求执行命令时，**直接执行并返回结果**，不要只解释命令怎么用
+
 ## Shell 命令权限
 
 ### 允许
@@ -24,9 +29,9 @@
 - `khal` / `vdirsyncer` — 日历查看与 CalDAV 同步（通过 `.venv/bin/`）
 - `hass-cli` — Home Assistant 设备控制（通过 `.venv/bin/`）
 - `rclone` — 云存储同步
-- `curl http://localhost:8080/search?q=...&format=json` — SearXNG 搜索引擎
+- `curl 'http://localhost:8080/search?q=关键词&format=json'` — SearXNG 搜索引擎（**URL 必须用单引号包裹**，防止 zsh 解析 `?` 和 `&`）
 - `curl https://api.telegram.org/bot.../...` — Telegram Bot
-- `curl wttr.in/...` — 天气查询
+- `curl 'wttr.in/城市名'` — 天气查询
 
 #### 科研工具
 
