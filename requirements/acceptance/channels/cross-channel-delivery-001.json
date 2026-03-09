@@ -1,10 +1,10 @@
 {
   "id": "cross-channel-delivery-001",
-  "title": "风铃发起的异步任务结果应能送达 Telegram",
-  "capability": "multi-channel-continuity",
+  "title": "若启用 Telegram 集成，风铃发起的异步任务结果应能送达 Telegram",
+  "capability": "external-delivery",
   "category": "channels",
   "channel": "fengling",
-  "scenario": "用户在风铃里发起一个长任务，离开桌面后切换到移动端。任务完成时，系统应通过 Telegram 把结果送回给用户，而不是等用户重新打开风铃才能看到。",
+  "scenario": "用户在风铃里发起一个长任务，并额外启用了 Telegram 作为外部通知渠道。任务完成时，系统应通过 Telegram 把结果送回给用户，而不是要求用户必须回到风铃才能看到。",
   "input": {
     "user_message": "帮我把这篇论文翻译成中文，完成后告诉我。",
     "attachments": [

@@ -8,7 +8,7 @@ alwaysApply: true
 
 ## 这是什么
 
-Devkit 是一个以风铃为主入口的个人 AI 分身项目。用户通过风铃或 Telegram 与同一个本地 runtime 交互，由 runtime 负责任务、记忆、知识、工具与回报。
+Devkit 是一个围绕风铃构建的个人 AI 分身项目。风铃是自有移动端主客户端；Telegram 如果保留，默认只是可选的外部通知或轻量集成工具。所有入口都接入同一个本地 runtime，由 runtime 负责任务、记忆、知识、工具与回报。
 
 ## 关键文件地图
 

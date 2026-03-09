@@ -19,7 +19,7 @@
 | 目录 | 说明 |
 |------|------|
 | `core/` | 通用能力的验收场景 |
-| `channels/` | 风铃、Telegram 等入口体验验收 |
+| `channels/` | 风铃主体验与外部集成体验验收 |
 | `domains/` | 开发、科研、人际等专业能力验收 |
 | `regressions/` | 从真实失败案例沉淀出的回归样本 |
 
@@ -61,7 +61,7 @@
 | 文件 | 能力 | 场景摘要 |
 |------|------|----------|
 | [fengling-response-mode-001.json](channels/fengling-response-mode-001.json) | fengling-channel | 风铃应区分对话文本与附件 |
-| [cross-channel-delivery-001.json](channels/cross-channel-delivery-001.json) | multi-channel-continuity | 风铃发起的异步任务结果应能送达 Telegram |
+| [cross-channel-delivery-001.json](channels/cross-channel-delivery-001.json) | external-delivery | 若启用 Telegram 集成，风铃发起的异步任务结果应能送达 Telegram |
 
 ## 参考
 

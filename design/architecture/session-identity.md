@@ -1,14 +1,14 @@
 # Session Identity 与跨渠道连续性
 
-本文档描述目标态设计中，`session_key` 如何在渠道间共享、任务状态如何持久化，以及如何实现跨渠道结果投递。
+本文档描述目标态设计中，`session_key` 如何在风铃主客户端与可选外部集成之间共享、任务状态如何持久化，以及如何实现外部结果投递。
 
 ## 问题背景
 
-系统同时支持风铃（桌面）和 Telegram（移动）两个入口，但任务属于用户而不是某个会话窗口。要实现"桌面发起、移动端收到结果"，需要解决三个子问题：
+系统至少支持风铃 App 这个主客户端，并可按需启用 Telegram 这类外部投递渠道。任务属于用户而不是某个会话窗口。要实现“风铃发起、Telegram 收到结果”，需要解决三个子问题：
 
-1. **身份统一**：两个渠道的用户是同一个人，系统必须有统一身份映射
+1. **身份统一**：主客户端与外部渠道背后是同一个人，系统必须有统一身份映射
 2. **任务归属**：任务必须归属于用户身份，而不是某个渠道会话
-3. **结果投递**：任务完成时，系统知道把结果送向哪个渠道
+3. **结果投递**：任务完成时，系统知道是否要把结果送向外部渠道
 
 ## 设计决策
 
@@ -21,7 +21,7 @@
 ```
 
 例如：
-- `fengling-local-20260309` — 风铃桌面会话（单用户，以日期区分）
+- `fengling-local-20260309` — 风铃 App 会话（单用户，以日期区分）
 - `tg-123456789` — Telegram 用户 ID `123456789`
 
 `session_key` 由渠道层在会话建立时分配，runtime 只消费它，不生成它。
@@ -31,9 +31,9 @@
 V1 采用本地配置文件 `implementation/assets/persona/USER.md` + 环境变量的方式绑定身份：
 
 - 风铃：单用户，`session_key` 固定前缀 `fengling-local`
-- Telegram：`TELEGRAM_USER_ID` 环境变量定义允许的用户 ID
+- Telegram：如果启用外部投递，则用 `TELEGRAM_USER_ID` 环境变量定义允许的用户 ID
 
-多渠道身份映射表（V1 最小实现）：
+主客户端与可选外部投递渠道的身份映射表（V1 最小实现）：
 
 ```yaml
 # implementation/data/identity-map.yml
@@ -45,7 +45,7 @@ channels:
     user_id: "${TELEGRAM_USER_ID}"
     session_prefix: "tg-${TELEGRAM_USER_ID}"
 notify_preference:
-  async_results: "telegram"   # 异步结果优先投递到哪个渠道
+  async_results: "telegram"   # 若启用外部投递，异步结果发往哪个渠道
   reminders: "telegram"
 ```
 
@@ -76,7 +76,7 @@ implementation/data/tasks.jsonl
 
 任务状态更新以追加新行的方式写入，以最后一条相同 `task_id` 的记录为准（append-only，可回溯）。
 
-### 跨渠道结果投递
+### 外部结果投递
 
 任务完成时，runtime 根据 `identity-map.yml` 中的 `notify_preference` 决定向哪个渠道推送结果：
 
@@ -85,7 +85,7 @@ implementation/data/tasks.jsonl
   └─ ResultComposer 生成回报内容
       └─ 查询 notify_preference
           ├─ 当前渠道（发起渠道）：直接回复
-          └─ 异步结果偏好渠道（如 Telegram）：通过 EventSystem 发布 channel.deliver 事件
+          └─ 若配置了外部通知渠道（如 Telegram）：通过 EventSystem 发布 channel.deliver 事件
 ```
 
 `channel.deliver` 事件 payload：
@@ -99,7 +99,7 @@ implementation/data/tasks.jsonl
 }
 ```
 
-### 任务跨渠道追溯
+### 任务外部投递后的追溯
 
 Telegram 收到结果通知时，通知中携带 `task_id`，用户可在风铃中用该 ID 查看完整执行记录：
 

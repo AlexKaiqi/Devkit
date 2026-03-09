@@ -3,7 +3,7 @@
 - **称呼:** 主人
 - **Timezone:** Asia/Shanghai (UTC+8)
 - **沟通语言:** 中文为主
-- **沟通渠道:** 风铃、Telegram（主动通知）
+- **沟通渠道:** 风铃；Telegram（可选主动通知）
 - **邮箱:** alexkaiqi@gmail.com
 
 ## 工作风格

@@ -1,4 +1,4 @@
-"""L4 E2E: 风铃 Web client — HTTP API validation."""
+"""L4 E2E: 风铃 channel surface — HTTP API validation."""
 
 import aiohttp
 import pytest
@@ -16,10 +16,10 @@ def _fengling_available() -> bool:
 @pytest.fixture(autouse=True)
 def _skip_if_no_fengling():
     if not _fengling_available():
-        pytest.skip("风铃 Web not running on :3001")
+        pytest.skip("风铃 channel service not running on :3001")
 
 
-class TestFenglingWeb:
+class TestFenglingChannelSurface:
 
     @pytest.mark.asyncio
     async def test_index_returns_html(self):

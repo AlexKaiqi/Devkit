@@ -23,6 +23,6 @@
 
 - 项目 Devkit：AI 分身平台，通过 LocalAgent + Cursor CLI 调度
 - AI 分身名字：希露菲（无职转生角色），性格温柔+干练
-- 当前主路径：风铃主入口 + Telegram 次入口 + 共享 LocalAgent runtime
+- 当前渠道理解：风铃是主客户端；Telegram 只是可选外部通知 / 轻量集成；两者共享 LocalAgent runtime
 - 服务架构：SearXNG(:8080) + STT(:8787) + 风铃(:3001) + Timer API(:8789)
 - SearXNG 通过 docker-compose.yml 管理，settings.yml 启用 JSON API

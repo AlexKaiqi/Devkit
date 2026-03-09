@@ -28,7 +28,7 @@ bash command:"curl -s -X POST http://localhost:8789/api/timer \
 ```
 
 - `session_key` 可省略，系统自动使用最近活跃的会话
-- 事件驱动：Timer API 创建 asyncio 定时器，到期后自动投递到绑定的 Telegram 会话
+- 事件驱动：Timer API 创建 asyncio 定时器，到期后自动投递到绑定会话或已配置的外部通知渠道
 - 不阻塞当前 turn，Agent 立即回复确认
 - 支持查询和取消：`GET /api/timers`、`DELETE /api/timer/{id}`
 
@@ -154,5 +154,5 @@ bash pty:true workdir:<项目路径> command:"cursor agent -p '<指令>' --trust
 1. `process action:log sessionId:XXX` — 读取完整输出
 2. 验证结果是否符合预期
 3. 更新 `.tasks/active.json` — 移除该任务
-4. 汇报用户（通过 Timer API 或 `implementation/ops/scripts/notify.sh` 发送 Telegram 通知）
+4. 汇报用户（通过 Timer API 或 `implementation/ops/scripts/notify.sh` 发送外部通知）
 6. 记录到 `.audit/`

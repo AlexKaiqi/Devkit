@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Devkit 是一个以**风铃（Fengling）**为主入口的个人 AI 分身项目。用户通过风铃（桌面）或 Telegram（移动端）与同一个本地 runtime 交互，由 runtime 负责任务、记忆、知识、工具与回报。
+Devkit 是一个围绕**风铃（Fengling）**构建的个人 AI 分身项目。风铃是自有移动端主客户端；Telegram 如果保留，默认只是可选的外部通知或轻量集成工具。所有入口都接入同一个本地 runtime，由 runtime 负责任务、记忆、知识、工具与回报。
 
 仓库采用三层结构：
 - `requirements/` — 产品需求、能力定义、验收场景（描述*想要什么*）
@@ -41,8 +41,8 @@ All Python commands must use the project-local `.venv/bin/python` (Python 3.12+)
 **Runtime core** (`implementation/runtime/`): Shared agent runtime — `agent.py`, `tools.py`, `event_bus.py`. Thin OpenAI-compatible model adapter layer, event-driven design for async operations.
 
 **Channels** (`implementation/channels/`):
-- `fengling/` — FastAPI + WebSocket desktop voice/text server
-- `telegram/` — python-telegram-bot mobile interface
+- `fengling/` — Fengling channel implementation (currently exposed through a FastAPI + WebSocket interface)
+- `telegram/` — optional python-telegram-bot integration for external delivery / lightweight commands
 
 **Services** (`implementation/services/`):
 - `speech/` — Doubao STT/TTS proxy

@@ -4,7 +4,7 @@
 
 | 主题 | 摘要 | 详细文档 |
 |------|------|----------|
-| 渠道与入口 | 风铃为主入口，Telegram 为移动次入口，共享同一 runtime | [channel-entry.md](channel-entry.md) |
+| 渠道与入口 | 风铃是主客户端，Telegram 是可选外部集成，共享同一 runtime | [channel-entry.md](channel-entry.md) |
 | 交互模型 | 条件语音、文本/附件分区、长任务先反馈后异步推进 | [interaction-model.md](interaction-model.md) |
 | AI 原生开发 | 文档、验收、评测先于实现，失败样本要沉淀成长期资产 | [ai-native-development.md](ai-native-development.md) / [ai-native-development-checklist.md](ai-native-development-checklist.md) |
 | 工具原则 | 开源优先、CLI/HTTP/MCP 优先，不把测试工具误写成主路径依赖 | [tooling-principles.md](tooling-principles.md) |

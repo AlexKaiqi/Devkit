@@ -18,7 +18,7 @@
 | 定时与主动通知 | 支持提醒、延时任务和主动回报 | [事件系统设计](../../design/interfaces/event-system.md) |
 | 工具与能力调用 | 统一承载本地命令、文件、检索和外部集成 | [系统设计总览](../../design/architecture/system-overview.md) |
 | 记忆层与知识层 | 记忆负责低成本沉淀，知识负责长期复用资产 | [记忆层与知识层](../core/memory-knowledge.md) |
-| 多入口连续性 | 风铃与移动入口共享同一任务、记忆和分身身份 | [产品总览](../product/overview.md) |
+| 外部投递与辅助集成 | 风铃主任务流可按需投递到 Telegram 等外部渠道，并保持必要的身份与任务关联 | [产品总览](../product/overview.md) |
 | 审计与结果回报 | 关键输入输出和外部动作可追踪，可解释失败原因 | [信任模型与委托边界](../core/trust-boundaries.md) |
 
 ## 专业能力

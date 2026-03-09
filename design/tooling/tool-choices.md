@@ -24,7 +24,6 @@
 | LLM 推理 | OpenAI 兼容接口 | API | 由 `LocalAgent` 调用，模型供应商可替换 |
 | 语音识别 / 合成 | 豆包 STT/TTS | API | 当前语音主路径依赖 |
 | 搜索 | SearXNG | Docker 服务 | 当前通用检索入口 |
-| 主动通知 | Telegram Bot API | HTTP API | 当前异步结果回报主路径 |
 | 定时与异步 | `Timer API` + `EventBus` | 本地服务 | 当前任务异步推进依赖 |
 | 通用工具执行 | `exec` / `read_file` / `write_file` / `search` | 本地 runtime | 当前 Agent 基础工具面 |
 
@@ -43,6 +42,7 @@
 | 论文阅读 | `marker` | CLI | PDF → Markdown |
 | 文献管理 | `papis` | CLI | 研究资料管理 |
 | 通讯录 | `khard` | CLI | vCard / CardDAV 方向 |
+| 外部通知 / 轻量触达 | Telegram Bot API | HTTP API | 可选外部集成，不作为核心客户端依赖 |
 | 云存储 | `rclone` | CLI | 外部文件系统接入 |
 | 通用扩展 | MCP 协议 | 协议 | 新专业能力的优先扩展方式 |
 
@@ -66,7 +66,7 @@
 - 自动化实验
 - 手机操作能力原型
 
-而不是和 `LLM`、`Telegram Bot API`、`SearXNG` 这些当前运行必需依赖并列。
+而不是和 `LLM`、`SearXNG` 这些当前运行必需依赖并列。
 
 ## 建议的接入优先级
 
@@ -75,7 +75,6 @@
 - OpenAI 兼容 LLM 接口
 - 豆包 STT/TTS
 - SearXNG
-- Telegram Bot API
 - `Timer API` + `EventBus`
 - `exec` / `read_file` / `write_file` / `search`
 
@@ -86,6 +85,7 @@
 - `khal` + `vdirsyncer`
 - `hass-cli`
 - `akshare-one-mcp`
+- `Telegram Bot API`
 - `paperscout` / `marker` / `papis`
 - `khard`
 - `rclone`
