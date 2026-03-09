@@ -1,6 +1,6 @@
 # Audit logs (contain full agent interaction history, may be large)
 .audit/
-data/voice-audit/
+implementation/data/voice-audit/
 
 # Screenshots (testing artifacts)
 screenshots/

@@ -1,5 +1,5 @@
 ---
-description: Cursor Agent 行为约束 — 兼容 agent -p 委派调用和用户直接对话两种模式
+description: Cursor Agent 行为约束 — 兼容委派模式与直接模式
 globs:
 alwaysApply: true
 ---
@@ -8,34 +8,26 @@ alwaysApply: true
 
 本项目有两种 Cursor 使用模式，根据上下文自动判断：
 
-## 模式判断
-
-- **委派模式**: 被希露菲通过 `cursor agent -p "..."` 调用 → 按委派模式执行
-- **直接模式**: 用户在 Cursor IDE 中直接对话 → 按直接模式执行
-
-判断依据：如果 prompt 是一段完整的任务指令（含明确目标和验收标准），通常是委派模式；如果是自然对话，则是直接模式。
+- 委派模式：被上层 agent 通过 `cursor agent -p` 调用。
+- 直接模式：用户在 Cursor IDE 中直接对话。
 
 ## 委派模式
 
-严格按 prompt 中的指令执行：
-
-- 不自行扩展范围
-- 不确定的技术细节标注为「待确认」，不自行假设
-- 完成后在 stdout 输出完成报告：做了什么 → 变更文件 → 技术决策 → 待确认项
+- 严格按 prompt 执行，不自行扩范围。
+- 不确定处标注为“待确认”。
+- 完成后输出完成报告：完成情况、变更文件、技术决策、待确认项。
 
 ## 直接模式
 
-作为用户的开发伙伴：
-
-- 读取 `project-context.mdc` 了解项目全貌
-- 遇到初始化/配置问题时，参考 `onboarding.mdc` 引导流程
-- 可运行 `./check.sh --json` 了解项目当前状态
-- 主动推进，给建议和选项，不被动等待
+- 先读 `project-context.mdc`。
+- 遇到初始化问题时参考 `onboarding.mdc`。
+- 需要诊断时运行 `./check.sh --json`。
+- 作为开发伙伴主动推进。
 
 ## 通用约定
 
-- 每次完成任务后更新 `STATUS.md`（当前状态、已完成项）
-- 读取 `GOALS.md` 了解项目整体方向
-- 遵循 `DECISIONS.md` 中的已有决策
-- 优先使用项目已有的技术栈和模式，保持一致性
-- 执行 Python 命令时使用项目内 `.venv` 虚拟环境
+- 每次完成任务后更新 `implementation/STATUS.md`。
+- 读取 `requirements/product/goals.md` 了解项目目标。
+- 遵循 `design/decisions/README.md` 中的既有决策。
+- 优先使用已有技术栈和模式。
+- 所有 Python 命令使用项目内 `.venv`。

@@ -1,5 +1,5 @@
 ---
-description: Devkit 项目上下文 — 让 AI 理解这是什么项目、关键文件在哪、遵循什么约定
+description: Devkit 项目上下文 — 让 AI 理解新的需求/设计/实现三层结构
 globs:
 alwaysApply: true
 ---
@@ -8,55 +8,35 @@ alwaysApply: true
 
 ## 这是什么
 
-Devkit 是一个 **AI 分身平台**，不是普通代码仓库。用户通过手机/桌面与 AI 分身（希露菲）对话，希露菲全权代理用户的开发、科研、生活管理。
-
-核心链路：`手机 (风铃 Web UI) / Telegram → LocalAgent → LLM + 工具链`
+Devkit 是一个以风铃为主入口的个人 AI 分身项目。用户通过风铃或 Telegram 与同一个本地 runtime 交互，由 runtime 负责任务、记忆、知识、工具与回报。
 
 ## 关键文件地图
 
 | 文件 | 作用 | 何时读 |
 |------|------|--------|
-| `docs/PRODUCT.md` | 产品定义（是什么、能做什么） | 理解产品定位时 |
-| `docs/GOALS.md` | 项目愿景和当前迭代目标 | 每次会话开始 |
-| `STATUS.md` | 当前进度、已完成项 | 每次任务完成后更新 |
-| `docs/DECISIONS.md` | 技术决策记录 | 做选型前查阅，做完后追加 |
-| `docs/CAPABILITIES.md` | 能力总览 + 技能矩阵 | 需要新能力时参考 |
-| `docs/TOOL_CHOICES.md` | 工具选型清单 | 选工具时参考 |
-| `docs/PITFALLS.md` | 踩坑手册 | 遇到报错时查阅 |
-| `docs/specs/` | 各能力域详细规格 | 实现具体能力时 |
-| `.env` / `.env.example` | 环境变量 | 配置相关问题时 |
-| `persona/*.md` | AI 分身人设和工作指令 | 理解分身行为时 |
-| `persona/REFERENCE.md` | 命令模板和数据格式 | 需要写 bash/cron 命令时 |
-| `persona/MEMORY.md` | 长期记忆（用户偏好、经验、背景） | 每次会话开始时读取，发现新知识时追加 |
-| `persona/memory/` | 每日日志 | 每次会话结束时写入当天日志 |
-| `services/SERVICE_CATALOG.md` | 服务总览（能力→实现映射） | 理解服务架构时 |
-| `data/contacts.yml` | 通讯录 | 人际相关操作时读写 |
-| `data/gifts.yml` | 人情往来记录 | 送礼/节日相关时读写 |
-| `check.sh` | 项目状态诊断 | 判断项目健康度、初始化进度时 |
-| `scripts/notify.sh` | Telegram 通知 | 需要主动通知用户时 |
+| `requirements/product/overview.md` | 产品总览 | 理解产品定位时 |
+| `requirements/product/goals.md` | 项目目标与迭代重点 | 每次会话开始 |
+| `requirements/product/metrics.md` | 产品衡量方式 | 讨论成功标准时 |
+| `requirements/capabilities/overview.md` | 能力需求总览 | 评估缺什么能力时 |
+| `design/architecture/system-overview.md` | 目标态系统设计 | 理解架构边界时 |
+| `design/decisions/README.md` | 设计决策索引 | 选型或变更边界时 |
+| `implementation/STATUS.md` | 当前实现状态 | 每次任务完成后更新 |
+| `implementation/assets/persona/*.md` | 分身人格与操作指令 | 理解 runtime 行为时 |
+| `implementation/data/contacts.yml` | 通讯录 | 人际相关操作时 |
+| `implementation/data/gifts.yml` | 人情往来记录 | 送礼/节日相关时 |
+| `./check.sh` | 项目状态诊断入口 | 判断项目健康度时 |
+| `./implementation/ops/scripts/notify.sh` | Telegram 即时通知 | 需要主动通知用户时 |
+| `./implementation/ops/scripts/timer.sh` | 延时通知 | 需要异步提醒时 |
 
 ## 约定
 
-- **Python**: 使用项目内 `.venv/`（Python 3.12），所有 Python 命令通过 `.venv/bin/python` 或 `.venv/bin/pip` 执行
-- **工具选型**: 开源优先、CLI 优先、闭源仅限不可替代的工具
-- **语言**: 中文沟通，技术术语保留英文
-- **文档更新**: 每次任务完成后更新 `STATUS.md`；做了技术决策追加到 `DECISIONS.md`
-- **记忆管理**: 重要发现写入 `persona/MEMORY.md`；每天的工作写入 `persona/memory/YYYY-MM-DD.md`
-- **Docker**: SearXNG 等容器服务通过 `docker-compose.yml` 管理
+- Python 命令使用项目内 `.venv/`。
+- 先改 `requirements/` 和 `design/`，再落到 `implementation/`。
+- 每次完成任务后更新 `implementation/STATUS.md`。
+- 重要发现写入 `implementation/assets/persona/MEMORY.md`；每日日志写入 `implementation/assets/persona/memory/YYYY-MM-DD.md`。
+- 文档与沟通以中文为主，技术术语保留英文。
 
-## 项目状态诊断
+## 状态诊断
 
-运行 `./check.sh` 可查看项目完整状态（依赖、配置、服务、工具）。
-运行 `./check.sh --json` 获取机器可读的 JSON 输出。
-
-## 技术栈
-
-- **运行环境**: macOS (Apple Silicon)
-- **AI 推理**: LocalAgent (openai SDK) + LLM 代理 (yinli.one / OpenRouter)
-- **前端**: 风铃 (Voice Chat Web UI)
-- **语音**: 豆包 STT/TTS (火山引擎 BigModel)
-- **搜索**: SearXNG (自托管 Docker)
-- **邮件**: himalaya (IMAP/SMTP CLI)
-- **桌面自动化**: peekaboo
-- **Web 自动化**: Playwright
-- **容器**: Docker Compose
+运行 `./check.sh` 查看项目状态。
+运行 `./check.sh --json` 获取机器可读输出。

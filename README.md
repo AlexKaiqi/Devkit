@@ -1,59 +1,41 @@
-# Devkit — AI 原生个人分身平台
+# Devkit
 
-> 语音或文字下达指令 → AI 分身自主拆解、执行、汇报。全部本地运行，无数据外泄。
+> 仓库按 `requirements/`、`design/`、`implementation/` 三层组织：先定义要什么，再定义怎么设计，最后落到实际代码与运行资产。
 
 ## Quick Start
 
 ```bash
-git clone <repo-url> Devkit && cd Devkit
-./setup.sh    # 检查依赖、创建 .env、安装工具链
-vim .env      # 填入凭据
-./start.sh    # 启动所有服务
+./setup.sh
+./start.sh
 ```
 
-或用 Cursor 打开项目，AI 会自动引导完成全部初始化。
+根目录脚本是薄包装入口，实际实现位于 `implementation/ops/`。
 
-## 文档索引
+## 先看哪里
 
-| 文档 | 内容 |
+| 目录 | 说明 |
 |------|------|
-| [产品定义](docs/PRODUCT.md) | 是什么、能做什么、交互体验 |
-| [项目目标](docs/GOALS.md) | 愿景与迭代方向 |
-| [能力清单](docs/CAPABILITIES.md) | 能力总览 + 技能矩阵 |
-| [系统架构](docs/ARCHITECTURE.md) | 服务拓扑与通信协议 |
-| [决策记录](docs/DECISIONS.md) | 为什么这么选 |
-| [工具选型](docs/TOOL_CHOICES.md) | 用什么工具实现 |
-| [踩坑手册](docs/PITFALLS.md) | 常见问题速查 |
-| [当前进度](STATUS.md) | 最新状态 |
+| [requirements/](requirements/README.md) | 产品需求、能力需求、验收标准 |
+| [design/](design/README.md) | 目标架构、接口契约、设计决策 |
+| [implementation/](implementation/README.md) | 源码、运行资产、脚本、测试、当前状态 |
 
-## 服务与实现
+## 推荐阅读顺序
 
-| 文档 | 内容 |
-|------|------|
-| [服务总览](services/SERVICE_CATALOG.md) | 能力 → 服务映射 |
-| [Agent 人格](persona/) | 人设 / 行为准则 / 记忆 |
+1. [产品总览](requirements/product/overview.md)
+2. [项目目标](requirements/product/goals.md)
+3. [能力需求总览](requirements/capabilities/overview.md)
+4. [系统设计总览](design/architecture/system-overview.md)
+5. [实现层导航](implementation/README.md)
 
-## 使用方式
+## 入口
 
-| 渠道 | 地址 | 说明 |
+| 渠道 | 角色 | 说明 |
 |------|------|------|
-| 风铃 | `http://localhost:3001` | 语音+文字，日常推荐 |
-| Telegram | 搜索你的 Bot | 随时随地 |
-| OpenCami | `http://localhost:3000` | 全功能界面 |
+| 风铃 | 主入口 | 默认桌面工作台，优先承载高频交互与任务发起 |
+| Telegram | 次入口 | 移动侧发起请求、接收异步结果与提醒 |
 
-## 前置条件
+## 仓库原则
 
-| 依赖 | 安装 |
-|------|------|
-| Node.js 20+ | `brew install node` |
-| Python 3.12+ | `brew install python@3.12` |
-| Cursor IDE | [cursor.com](https://www.cursor.com/) |
-| Docker | [Docker Desktop](https://www.docker.com/) |
-
-## 需要准备的凭据
-
-| 凭据 | 用途 | 获取 |
-|------|------|------|
-| DOUBAO_APPID / TOKEN | 语音识别+合成 | [火山引擎控制台](https://console.volcengine.com/speech/service/8) |
-| LLM API Key | LLM 推理 | 任意 OpenAI 兼容服务商 |
-| TELEGRAM_BOT_TOKEN | Telegram Bot（可选） | [@BotFather](https://t.me/BotFather) |
+- `requirements/` 只回答用户价值、对象、流程与验收标准。
+- `design/` 只回答系统边界、模块关系、接口与设计决策。
+- `implementation/` 才描述代码、脚本、环境变量、端口与运行现状。

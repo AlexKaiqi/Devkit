@@ -1,5 +1,5 @@
 ---
-description: 项目初始化引导 — 检测到未完成配置时，AI 交互式引导用户完成初始化
+description: 项目初始化引导 — 按新的实现层结构引导配置
 globs:
 alwaysApply: true
 ---
@@ -14,82 +14,57 @@ alwaysApply: true
 
 - `.env` 文件不存在
 - `.venv/` 目录不存在
-- 用户提到"初始化"、"安装"、"配置"、"setup"
+- 用户提到“初始化”“安装”“配置”“setup”
 
 ## 诊断优先
 
-**先跑诊断，再给建议**：运行 `./check.sh --json`，根据输出判断缺什么，不要猜测。
+先跑诊断，再给建议：运行 `./check.sh --json`，根据输出判断缺什么，不要猜测。
 
 ## 引导流程
 
-按优先级依次处理 `check.sh` 报告的问题：
+### 1. 系统依赖
 
-### 阶段 1：系统依赖（check.sh → system）
+缺失依赖通过 Homebrew 安装：
 
-缺失的依赖通过 Homebrew 安装：
-
-```
+```bash
 brew install python@3.12 git
 ```
 
-Docker 需单独安装 Docker Desktop: https://www.docker.com/products/docker-desktop/
+Docker 需要单独安装 Docker Desktop。
 
-### 阶段 2：环境配置（check.sh → env）
+### 2. 环境配置
 
 如果 `.env` 不存在，运行 `./setup.sh` 会自动从 `.env.example` 创建。
 
-逐个引导必填项：
+必填项：
 
-- **DOUBAO_APPID / DOUBAO_TOKEN**: 火山引擎控制台 → 语音技术 → 语音识别大模型，创建应用获取
-  - 控制台地址: https://console.volcengine.com/speech/service/8
-  - 同一 APPID/TOKEN 可同时用于 STT 和 TTS
-- **LLM_API_KEY / LLM_BASE_URL**: OpenAI 兼容的 LLM 代理
-  - 推荐 yinli.one 或 openrouter.ai
-  - 填写代理提供的 API Key 和 Base URL（如 `https://yinli.one/v1`）
+- `DOUBAO_APPID` / `DOUBAO_TOKEN`
+- `LLM_API_KEY` / `LLM_BASE_URL`
 
-### 阶段 3：安装（setup.sh）
-
-所有必填 .env 变量就绪后，运行：
+### 3. 安装
 
 ```bash
 ./setup.sh
 ```
 
-这会自动完成：Python .venv 创建、pip 依赖安装、Homebrew CLI 工具安装、Playwright 浏览器下载。
+会自动完成：`.venv` 创建、Python 依赖安装、常用 CLI 工具安装、Playwright 下载。
 
-### 阶段 4：可选配置
+### 4. 可选配置
 
-非必需，按用户需要引导：
+- Telegram Bot
+- 邮件（himalaya）
+- 日历（vdirsyncer / khal）
+- Home Assistant
 
-- **邮件 (himalaya)**: 需要 Gmail App Password
-  - Google 账号 → 安全 → 两步验证 → 应用专用密码
-  - 配置文件: `~/.config/himalaya/config.toml`
-  - 参考: https://pimalaya.org/himalaya/cli/latest/configuration/
-
-- **日历 (vdirsyncer)**: 需要 Google Calendar CalDAV 授权
-  - 配置文件: `~/.config/vdirsyncer/config`
-  - 或改用 `gcalcli`（OAuth 更简单）
-
-- **Home Assistant**: 需要长期访问令牌
-  - HA 个人资料页面 → 长期访问令牌 → 创建
-  - 设置 .env 中的 HASS_SERVER 和 HASS_TOKEN
-
-- **Telegram Bot**: 通过 @BotFather 创建
-  - 设置 .env 中的 TELEGRAM_BOT_TOKEN 和 TELEGRAM_CHAT_ID
-  - CHAT_ID 获取方式：给 Bot 发一条消息后访问 `https://api.telegram.org/bot<TOKEN>/getUpdates`，从返回 JSON 中找 `result[0].message.chat.id`
-
-### 阶段 5：验证
-
-全部配置完成后：
+### 5. 验证
 
 ```bash
-./check.sh                 # 确认所有项目绿色
-./start.sh                 # 启动服务
+./check.sh
+./start.sh
 ```
 
 ## 引导原则
 
-- 一次只问一个问题，不要一股脑列出所有待办
-- 用户提供凭据后立即写入 .env 并验证
-- 遇到问题查 `docs/PITFALLS.md`
-- 每完成一个阶段，跑一次 `./check.sh` 确认进度
+- 一次只解决一个问题。
+- 用户提供凭据后，优先验证再继续下一步。
+- 每完成一个阶段，重新运行 `./check.sh`。
