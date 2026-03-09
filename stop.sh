@@ -6,12 +6,10 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo "停止服务..."
 
-OPENCAMI_PORT="${OPENCAMI_PORT:-3000}"
 VOICE_CHAT_PORT="${VOICE_CHAT_PORT:-3001}"
-OPENCLAW_GATEWAY_PORT="${OPENCLAW_GATEWAY_PORT:-18789}"
 STT_PROXY_PORT="${STT_PROXY_PORT:-8787}"
 
-for port in $OPENCAMI_PORT $VOICE_CHAT_PORT $OPENCLAW_GATEWAY_PORT $STT_PROXY_PORT; do
+for port in $VOICE_CHAT_PORT $STT_PROXY_PORT; do
   pids=$(lsof -t -i ":$port" 2>/dev/null || true)
   if [ -n "$pids" ]; then
     echo "$pids" | xargs kill -9 2>/dev/null || true

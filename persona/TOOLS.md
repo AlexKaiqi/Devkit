@@ -5,22 +5,22 @@
 - **机器:** macOS (Apple Silicon)
 - **主项目:** `/Users/kaiqidong/Devkit`
 - **Python 虚拟环境:** 项目内 `.venv/`（Python 3.12），所有 Python 命令通过 `.venv` 执行
-- **Cursor CLI:** `cursor agent -p "<prompt>" --trust` — 调用本地 Cursor Agent 执行开发（**必须通过 `bash pty:true` 调用**，否则会挂起）
 
-## Shell 使用规范
+## 可用工具
 
-- 含 `?`、`&`、`+`、`*`、`#` 等特殊字符的 URL **必须用单引号包裹**，否则 zsh 会将其解析为 glob/变量
-- 用户要求执行命令时，**直接执行并返回结果**，不要只解释命令怎么用
+你有 4 个工具可以调用：
 
-## Shell 命令权限
+- `exec(command, workdir?)` — 执行 shell 命令，返回 stdout+stderr
+- `read_file(path)` — 读取文件内容
+- `write_file(path, content)` — 写入文件
+- `search(query, max_results?)` — 通过 SearXNG 搜索网页
+
+## Shell 命令权限（通过 exec 调用）
 
 ### 允许
 
-- `bash pty:true workdir:<项目路径> command:"cursor agent -p '...' --trust"` — 调度开发任务（需 PTY，否则挂起）
-- `bash pty:true workdir:<项目路径> background:true command:"cursor agent -p '...' --trust"` — 后台调度长任务
 - `git add / commit / push / pull / status / diff / log` — 版本管理
 - `ls / cat / head / tail / find / wc` — 文件查看
-- `cd` — 切换目录
 - `.venv/bin/python` / `.venv/bin/pip` — Python 环境
 
 #### MCP 工具（通过 mcporter）— A 股数据
@@ -76,10 +76,9 @@
 #### 定时通知（⚠️ 唯一方式）
 
 - `./scripts/timer.sh <秒数> "到期后发送的消息"` — **延时通知，到期自动推送到 Telegram**
-  - 示例: `bash command:"./scripts/timer.sh 60 '主人，1分钟到了'"` — 60 秒后推送
-  - 示例: `bash command:"./scripts/timer.sh 600 '该开会了'"` — 10 分钟后推送
+  - 示例: exec `./scripts/timer.sh 60 '主人，1分钟到了'` — 60 秒后推送
+  - 示例: exec `./scripts/timer.sh 600 '该开会了'` — 10 分钟后推送
   - 不阻塞当前 turn，立即返回 timer_id
-  - ❌ **禁止用 `openclaw cron add`**（已禁用，静默失败）
   - ❌ **禁止用 `sleep`**（会阻塞对话）
 
 #### 即时通知与巡检
@@ -92,8 +91,8 @@
 
 - `data/contacts.yml` — 通讯录读写
 - `data/gifts.yml` — 人情往来读写
-- `openclaw/MEMORY.md` — 长期记忆读写
-- `openclaw/memory/*.md` — 每日日志读写
+- `persona/MEMORY.md` — 长期记忆读写
+- `persona/memory/*.md` — 每日日志读写
 
 #### Docker
 

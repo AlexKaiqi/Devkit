@@ -1,10 +1,10 @@
 # 项目进度
 
-> 最后更新：2026-03-05
+> 最后更新：2026-03-06
 
 ## 当前状态
 
-三渠道统一接入 OpenClaw Gateway：风铃 + Telegram Bot + OpenCami 全部走 Gateway WebSocket，共享同一个 Agent（希露菲）。端到端验证通过：基础对话、文件读写、Shell 命令、代码理解、Git 操作、邮件、Docker 管理、多步推理、会话管理、A 股数据查询（MCP）。
+LocalAgent 直接通过 openai SDK 调用 LLM（gemini-3.1-pro-preview），内置 exec / read_file / write_file / search 四个工具，tool-calling loop 自动迭代。风铃 + Telegram Bot 两个渠道均已切换至 LocalAgent，零外部依赖。Agent 人设配置位于 `persona/` 目录。
 
 ## 进行中
 - SearXNG Docker 网络修复（容器内 HTTPS 出站被拦截，所有上游引擎超时）
@@ -12,8 +12,10 @@
 - Home Assistant 连接配置
 
 ## 最近完成
-- [2026-03-05] 事件驱动定时器架构：新建 EventBus（asyncio pub/sub）+ Timer API（:8789）。定时器绑定 session，到期自动投递 Telegram。替代失效的 openclaw cron --announce 和 bash+sleep 临时方案。同步禁用 Gateway 内建 Telegram channel（消除 getUpdates 409 冲突）
-- [2026-03-05] AI 原生项目目录重组：四层文档模型（docs/ 语义层 → openclaw/ 人格层 → services/ 实现层 → 根目录运维层）。新建 PRODUCT.md / ARCHITECTURE.md / SERVICE_CATALOG.md / REFERENCE.md，CAPABILITIES.md 763→~100行（拆为 specs/ + TOOL_CHOICES.md），AGENTS.md 246→~120行（模板抽到 REFERENCE.md），README.md 精简为索引
+- [2026-03-06] openclaw/ 目录重命名为 persona/，彻底清除 OpenClaw Gateway 依赖。删除 sync.sh、gateway_client.py，更新 setup.sh / check.sh / stop.sh / .env.example / .cursor/rules/ 等 40+ 文件引用
+- [2026-03-06] 自建 Agent Runtime（LocalAgent）：新建 services/agent.py（~150行）+ services/tools.py（~140行），openai SDK 直连 LLM + tool-calling loop。bot.py / server.py 统一接入，端到端验证通过（基础对话 + tool calling + 定时器 + MCP + 图片理解）
+- [2026-03-05] 事件驱动定时器架构：新建 EventBus（asyncio pub/sub）+ Timer API（:8789）。定时器绑定 session，到期自动投递 Telegram
+- [2026-03-05] AI 原生项目目录重组：四层文档模型（docs/ 语义层 → persona/ 人格层 → services/ 实现层 → 根目录运维层）。新建 PRODUCT.md / ARCHITECTURE.md / SERVICE_CATALOG.md / REFERENCE.md
 - [2026-03-05] 分层测试体系搭建：L1 单元 / L2 组件 / L3 集成 / L4 端到端，共 82 用例（77 passed, 3 skipped, 2 deselected slow）。修复 gateway_client 会话解析 bug（sessions.create → friendly_id 直接使用）和 pytest event loop 作用域不匹配问题
 
 ## 已完成
@@ -22,8 +24,7 @@
 - [2026-03-05] 项目结构审查与优化：.env.example 重构（分必填/选填/LLM说明）、顶层 requirements.txt 统一依赖、setup.sh 自动生成 GATEWAY_TOKEN、check.sh 对齐新配置模型、stop.sh/sync.sh 读 .env 端口、onboarding.mdc 更新引导流程、phone.sh macOS 兼容修复
 - [2026-03-05] Gateway 客户端修复：文本重复（agent+chat 双事件去重）、新会话自动创建（resolve 失败时 fallback create）
 - [2026-03-05] Gateway 能力端到端验证：11/15 项通过，4 项为外部配置限制（gh 认证/Brave key/URL 转义/模型内容过滤）
-- [2026-03-05] 风铃/Telegram 接入 OpenClaw Gateway：不再直连 LLM，通过 Gateway WebSocket 协议与 Agent 通信，具备完整工具链能力
-- [2026-03-05] 新建 gateway_client.py：Ed25519 设备认证 + 挑战-响应握手 + 流式事件 + 会话管理
+- [2026-03-05] 风铃/Telegram 接入 Agent 后端，具备完整工具链能力
 - [2026-03-05] 风铃新增文字输入框，条件 TTS（语音输入→语音回复，文字输入→纯文字），LLM 切换至 gemini-2.5-flash（延迟降 42%）
 - [2026-03-05] TTS 引擎升级至豆包语音合成大模型，默认音色「甜美小源」，前端音色列表替换为 25 个大模型音色
 - [2026-03-05] 图片/视频输入支持：风铃(上传/粘贴/拖拽) + Telegram(发图/发视频)，视频自动抽帧，VISION_MODEL 独立配置
@@ -42,7 +43,7 @@
 - [2026-03-05] SearXNG 搜索引擎部署（Docker，集成到 start.sh / stop.sh）
 - [2026-03-05] himalaya 邮件配置完成（Gmail App Password，IMAP/SMTP 已通）
 - [2026-03-05] CAPABILITIES.md 扩展：新增科研/智能家居/人际管理/App操作等章节，增加第十章推荐工具清单
-- [2026-03-05] openclaw/TOOLS.md 更新：允许新增工具命令
+- [2026-03-05] persona/TOOLS.md 更新：允许新增工具命令
 - [2026-03-05] .env.example 更新：新增 SearXNG / HASS / Telegram / Peekaboo 配置项
 - [2026-03-05] setup.sh 更新：新增 Homebrew/pip 工具安装、Docker 检查、Python 3.12 支持
 - [2026-03-05] README.md 更新：架构图新增外部工具链、前置条件加 Docker、服务列表加 SearXNG

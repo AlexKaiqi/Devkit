@@ -129,7 +129,8 @@ fi
 
 env_doubao_appid=$(check_env_var DOUBAO_APPID)
 env_doubao_token=$(check_env_var DOUBAO_TOKEN)
-env_gw_token=$(check_env_var OPENCLAW_GATEWAY_TOKEN)
+env_llm_key=$(check_env_var LLM_API_KEY)
+env_llm_url=$(check_env_var LLM_BASE_URL)
 env_hass_token=$(check_env_var HASS_TOKEN)
 env_telegram=$(check_env_var TELEGRAM_BOT_TOKEN)
 env_telegram_chat=$(check_env_var TELEGRAM_CHAT_ID)
@@ -137,18 +138,19 @@ env_telegram_chat=$(check_env_var TELEGRAM_CHAT_ID)
 $JSON_MODE || {
   [[ "$env_doubao_appid" == "set" ]] && echo "  ✓ DOUBAO_APPID" || echo "  ✗ DOUBAO_APPID 未设置"
   [[ "$env_doubao_token" == "set" ]] && echo "  ✓ DOUBAO_TOKEN" || echo "  ✗ DOUBAO_TOKEN 未设置"
-  [[ "$env_gw_token" == "set" ]] && echo "  ✓ OPENCLAW_GATEWAY_TOKEN" || echo "  ✗ OPENCLAW_GATEWAY_TOKEN 未设置"
+  [[ "$env_llm_key" == "set" ]] && echo "  ✓ LLM_API_KEY" || echo "  ✗ LLM_API_KEY 未设置"
+  [[ "$env_llm_url" == "set" ]] && echo "  ✓ LLM_BASE_URL" || echo "  ✗ LLM_BASE_URL 未设置"
   [[ "$env_hass_token" == "set" ]] && echo "  - HASS_TOKEN 已设置" || echo "  - HASS_TOKEN 未设置（可选）"
   [[ "$env_telegram" == "set" ]] && echo "  - TELEGRAM_BOT_TOKEN 已设置" || echo "  - TELEGRAM_BOT_TOKEN 未设置（可选）"
   [[ "$env_telegram_chat" == "set" ]] && echo "  - TELEGRAM_CHAT_ID 已设置" || echo "  - TELEGRAM_CHAT_ID 未设置（可选）"
-  echo "  ℹ LLM 配置由 openclaw onboard 管理，不在 .env 中"
 }
 
 [[ "$env_doubao_appid" == "unset" ]] && ISSUES+=("设置 DOUBAO_APPID")
 [[ "$env_doubao_token" == "unset" ]] && ISSUES+=("设置 DOUBAO_TOKEN")
-[[ "$env_gw_token" == "unset" ]] && ISSUES+=("设置 OPENCLAW_GATEWAY_TOKEN（setup.sh 首次运行会自动生成）")
+[[ "$env_llm_key" == "unset" ]] && ISSUES+=("设置 LLM_API_KEY")
+[[ "$env_llm_url" == "unset" ]] && ISSUES+=("设置 LLM_BASE_URL")
 
-json_kv "env" "{$(quote exists):$env_exists,$(quote required):{$(quote DOUBAO_APPID):$(quote "$env_doubao_appid"),$(quote DOUBAO_TOKEN):$(quote "$env_doubao_token"),$(quote OPENCLAW_GATEWAY_TOKEN):$(quote "$env_gw_token")},$(quote optional):{$(quote HASS_TOKEN):$(quote "$env_hass_token"),$(quote TELEGRAM_BOT_TOKEN):$(quote "$env_telegram"),$(quote TELEGRAM_CHAT_ID):$(quote "$env_telegram_chat")}}"
+json_kv "env" "{$(quote exists):$env_exists,$(quote required):{$(quote DOUBAO_APPID):$(quote "$env_doubao_appid"),$(quote DOUBAO_TOKEN):$(quote "$env_doubao_token"),$(quote LLM_API_KEY):$(quote "$env_llm_key"),$(quote LLM_BASE_URL):$(quote "$env_llm_url")},$(quote optional):{$(quote HASS_TOKEN):$(quote "$env_hass_token"),$(quote TELEGRAM_BOT_TOKEN):$(quote "$env_telegram"),$(quote TELEGRAM_CHAT_ID):$(quote "$env_telegram_chat")}}"
 
 $JSON_MODE || echo ""
 
@@ -192,9 +194,8 @@ tool_himalaya=$(check_cmd himalaya himalaya)
 tool_rclone=$(check_cmd rclone rclone)
 tool_pandoc=$(check_cmd pandoc pandoc)
 tool_peekaboo=$(check_cmd peekaboo peekaboo)
-tool_openclaw=$(check_cmd openclaw OpenClaw)
 
-json_kv "tools" "{$(quote gh):$(quote "$tool_gh"),$(quote himalaya):$(quote "$tool_himalaya"),$(quote rclone):$(quote "$tool_rclone"),$(quote pandoc):$(quote "$tool_pandoc"),$(quote peekaboo):$(quote "$tool_peekaboo"),$(quote openclaw):$(quote "$tool_openclaw")}"
+json_kv "tools" "{$(quote gh):$(quote "$tool_gh"),$(quote himalaya):$(quote "$tool_himalaya"),$(quote rclone):$(quote "$tool_rclone"),$(quote pandoc):$(quote "$tool_pandoc"),$(quote peekaboo):$(quote "$tool_peekaboo")}"
 
 $JSON_MODE || echo ""
 
@@ -206,11 +207,10 @@ $JSON_MODE || echo "=== 服务状态 ==="
 
 svc_searxng=$(check_docker_container searxng)
 svc_stt=$(check_port "${STT_PROXY_PORT:-8787}" "豆包 STT 代理")
-svc_gateway=$(check_port "${OPENCLAW_GATEWAY_PORT:-18789}" "OpenClaw Gateway")
-svc_opencami=$(check_port "${OPENCAMI_PORT:-3000}" "OpenCami")
-svc_voice=$(check_port "${VOICE_CHAT_PORT:-3001}" "语音对话")
+svc_voice=$(check_port "${VOICE_CHAT_PORT:-3001}" "风铃")
+svc_timer=$(check_port "${TIMER_API_PORT:-8789}" "Timer API")
 
-json_kv "services" "{$(quote searxng):$(quote "$svc_searxng"),$(quote stt):$(quote "$svc_stt"),$(quote gateway):$(quote "$svc_gateway"),$(quote opencami):$(quote "$svc_opencami"),$(quote voice_chat):$(quote "$svc_voice")}"
+json_kv "services" "{$(quote searxng):$(quote "$svc_searxng"),$(quote stt):$(quote "$svc_stt"),$(quote voice_chat):$(quote "$svc_voice"),$(quote timer_api):$(quote "$svc_timer")}"
 
 $JSON_MODE || echo ""
 
@@ -236,16 +236,7 @@ else
   $JSON_MODE || echo "  - vdirsyncer 未配置 (~/.config/vdirsyncer/config)"
 fi
 
-openclaw_configured=false
-if [ -f "$HOME/.openclaw/openclaw.json" ]; then
-  openclaw_configured=true
-  $JSON_MODE || echo "  ✓ OpenClaw 已配置"
-else
-  $JSON_MODE || echo "  ✗ OpenClaw 未配置（运行 openclaw onboard）"
-  ISSUES+=("运行 openclaw onboard")
-fi
-
-json_kv "external" "{$(quote himalaya):$himalaya_configured,$(quote vdirsyncer):$vdirsyncer_configured,$(quote openclaw):$openclaw_configured}"
+json_kv "external" "{$(quote himalaya):$himalaya_configured,$(quote vdirsyncer):$vdirsyncer_configured}"
 
 $JSON_MODE || echo ""
 

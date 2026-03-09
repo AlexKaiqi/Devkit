@@ -31,7 +31,7 @@ vim .env      # 填入凭据
 | 文档 | 内容 |
 |------|------|
 | [服务总览](services/SERVICE_CATALOG.md) | 能力 → 服务映射 |
-| [Agent 人格](openclaw/) | 人设 / 行为准则 / 记忆 |
+| [Agent 人格](persona/) | 人设 / 行为准则 / 记忆 |
 
 ## 使用方式
 

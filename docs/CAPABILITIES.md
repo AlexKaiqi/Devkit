@@ -6,7 +6,7 @@
 
 | 能力域 | Spec | 状态 | 实现方式 |
 |--------|------|------|----------|
-| 开发代理 | [development-agent](specs/development-agent.md) | ✓ 已验证 | Cursor CLI + OpenClaw Gateway |
+| 开发代理 | [development-agent](specs/development-agent.md) | ✓ 已验证 | Cursor CLI + LocalAgent |
 | 语音交互 | [voice-interaction](specs/voice-interaction.md) | ✓ 已验证 | 风铃 + Telegram + 豆包 STT/TTS |
 | 知识与科研 | [knowledge-research](specs/knowledge-research.md) | ◎ 部分就绪 | paperscout + papis + pandas |
 | 智能家居 | [smart-home](specs/smart-home.md) | △ 待配置 | Home Assistant + hass-cli |
@@ -66,14 +66,14 @@
 
 ### 状态说明
 
-- ✓ 已验证 — 通过 Gateway 端到端确认可用
+- ✓ 已验证 — 通过 LocalAgent 端到端确认可用
 - ◎ 已就绪 — 工具已安装，待端到端验证
 - △ 部分就绪 — 需补充配置或依赖
 - ✗ 尚未实现
 
-### Gateway 能力边界
+### Agent 能力边界
 
-所有渠道统一接入 OpenClaw Gateway，Agent 能力不受渠道限制。
+所有渠道统一接入 LocalAgent，Agent 能力不受渠道限制。
 
 **已验证可用：** 基础对话、文件读写、Shell 命令、代码理解、多步推理、Git 操作、邮件读取、Docker 管理、会话管理、MCP 工具调用
 

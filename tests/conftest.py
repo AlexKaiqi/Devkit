@@ -41,9 +41,8 @@ def _port_open(port: int) -> bool:
         s.settimeout(1)
         return s.connect_ex(("127.0.0.1", port)) == 0
 
-def _gateway_available() -> bool:
-    port = int(os.environ.get("OPENCLAW_GATEWAY_PORT", "18789"))
-    return _port_open(port)
+def _agent_available() -> bool:
+    return bool(os.environ.get("LLM_API_KEY")) and bool(os.environ.get("LLM_BASE_URL"))
 
 def _stt_available() -> bool:
     return _port_open(int(os.environ.get("STT_PROXY_PORT", "8787")))
@@ -58,7 +57,7 @@ def _telegram_configured() -> bool:
 
 def pytest_collection_modifyitems(config, items):
     checks = {
-        "requires_gateway": (_gateway_available, "Gateway not running"),
+        "requires_agent": (_agent_available, "LLM_API_KEY/LLM_BASE_URL not set"),
         "requires_stt": (_stt_available, "STT Proxy not running"),
         "requires_tts": (_tts_configured, "DOUBAO_APPID/TOKEN not set"),
         "requires_telegram": (_telegram_configured, "TELEGRAM_BOT_TOKEN not set"),
@@ -72,25 +71,9 @@ def pytest_collection_modifyitems(config, items):
 # ── Fixtures ──────────────────────────────────────────
 
 @pytest.fixture(scope="session")
-def gateway_token() -> str:
-    return os.environ.get("OPENCLAW_GATEWAY_TOKEN", "")
-
-@pytest.fixture(scope="session")
-def gateway_port() -> int:
-    return int(os.environ.get("OPENCLAW_GATEWAY_PORT", "18789"))
-
-@pytest.fixture(scope="session")
-async def gateway_client(gateway_token, gateway_port):
-    from gateway_client import GatewayClient
-    gw = GatewayClient(
-        gateway_url=f"ws://127.0.0.1:{gateway_port}",
-        token=gateway_token,
-        client_display_name="pytest",
-        device_name="pytest-runner",
-    )
-    await gw.connect()
-    yield gw
-    await gw.close()
+def agent():
+    from agent import LocalAgent
+    return LocalAgent()
 
 @pytest.fixture
 def fresh_session() -> str:

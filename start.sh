@@ -12,19 +12,8 @@ if [ ! -f "$SCRIPT_DIR/.env" ]; then
 fi
 set -a; source "$SCRIPT_DIR/.env"; set +a
 
-GATEWAY_PORT="${OPENCLAW_GATEWAY_PORT:-18789}"
 STT_PORT="${STT_PROXY_PORT:-8787}"
-CAMI_PORT="${OPENCAMI_PORT:-3000}"
-GATEWAY_TOKEN="${OPENCLAW_GATEWAY_TOKEN:-}"
 TIMER_API_PORT="${TIMER_API_PORT:-8789}"
-
-# ── 同步 openclaw workspace ──────────────────
-WORKSPACE_DIR="$HOME/.openclaw/workspace"
-if [ -d "$WORKSPACE_DIR" ]; then
-  for f in "$SCRIPT_DIR"/openclaw/*.md; do
-    cp "$f" "$WORKSPACE_DIR/" 2>/dev/null
-  done
-fi
 
 # ── 辅助函数 ─────────────────────────────────
 
@@ -74,36 +63,7 @@ else
   wait_for_port "$STT_PORT" "豆包 STT 代理" 10
 fi
 
-# ── 2. OpenClaw Gateway ──────────────────────
-
-if is_port_in_use "$GATEWAY_PORT"; then
-  echo "  ✓ OpenClaw Gateway 已在运行 (:$GATEWAY_PORT)"
-else
-  echo "  启动 OpenClaw Gateway..."
-  nohup openclaw gateway --bind lan > /tmp/openclaw-gateway.log 2>&1 &
-  wait_for_port "$GATEWAY_PORT" "OpenClaw Gateway" 15
-fi
-
-# ── 3. OpenCami ──────────────────────────────
-
-if is_port_in_use "$CAMI_PORT"; then
-  echo "  ✓ OpenCami 已在运行 (:$CAMI_PORT)"
-else
-  echo "  启动 OpenCami..."
-  CLAWDBOT_GATEWAY_TOKEN="$GATEWAY_TOKEN" \
-  STT_BASE_URL="http://localhost:$STT_PORT/v1" \
-  OPENAI_API_KEY=doubao-stt-proxy \
-  nohup npx opencami \
-    --host 0.0.0.0 \
-    --port "$CAMI_PORT" \
-    --gateway "ws://127.0.0.1:$GATEWAY_PORT" \
-    --origin "http://localhost:$CAMI_PORT" \
-    --no-open \
-    > /tmp/opencami.log 2>&1 &
-  wait_for_port "$CAMI_PORT" "OpenCami" 10
-fi
-
-# ── 4. 风铃 (Voice Chat) ─────────────────────
+# ── 2. 风铃 (Voice Chat) ─────────────────────
 
 VOICE_PORT="${VOICE_CHAT_PORT:-3001}"
 
@@ -114,8 +74,11 @@ else
   STT_PROXY_URL="http://localhost:$STT_PORT" \
   DOUBAO_APPID="$DOUBAO_APPID" \
   DOUBAO_TOKEN="$DOUBAO_TOKEN" \
-  OPENCLAW_GATEWAY_PORT="$GATEWAY_PORT" \
-  OPENCLAW_GATEWAY_TOKEN="$GATEWAY_TOKEN" \
+  LLM_API_KEY="$LLM_API_KEY" \
+  LLM_BASE_URL="$LLM_BASE_URL" \
+  AGENT_MODEL="${AGENT_MODEL:-gemini-3.1-pro-preview}" \
+  WORKSPACE_DIR="${WORKSPACE_DIR:-persona}" \
+  DEVKIT_DIR="$SCRIPT_DIR" \
   VOICE_CHAT_PORT="$VOICE_PORT" \
   nohup "$SCRIPT_DIR/.venv/bin/python" "$SCRIPT_DIR/services/voice-chat/server.py" \
     > /tmp/voice-chat.log 2>&1 &
@@ -132,8 +95,11 @@ if [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
     STT_PROXY_URL="http://localhost:$STT_PORT" \
     DOUBAO_APPID="$DOUBAO_APPID" \
     DOUBAO_TOKEN="$DOUBAO_TOKEN" \
-    OPENCLAW_GATEWAY_PORT="$GATEWAY_PORT" \
-    OPENCLAW_GATEWAY_TOKEN="$GATEWAY_TOKEN" \
+    LLM_API_KEY="$LLM_API_KEY" \
+    LLM_BASE_URL="$LLM_BASE_URL" \
+    AGENT_MODEL="${AGENT_MODEL:-gemini-3.1-pro-preview}" \
+    WORKSPACE_DIR="${WORKSPACE_DIR:-persona}" \
+    DEVKIT_DIR="$SCRIPT_DIR" \
     TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
     TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-}" \
     TIMER_API_PORT="$TIMER_API_PORT" \
@@ -159,7 +125,7 @@ if pgrep -f "cloudflared.*tunnel" &>/dev/null; then
 else
   if command -v cloudflared &>/dev/null; then
     echo "  启动 Cloudflare Tunnel..."
-    nohup cloudflared tunnel --url "http://localhost:$CAMI_PORT" --no-autoupdate \
+    nohup cloudflared tunnel --url "http://localhost:$VOICE_PORT" --no-autoupdate \
       > "$TUNNEL_LOG" 2>&1 &
     sleep 5
     TUNNEL_URL=$(grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' "$TUNNEL_LOG" 2>/dev/null | tail -1)
@@ -183,12 +149,11 @@ echo "=== 所有服务已启动 ==="
 echo ""
 echo "  SearXNG:   http://localhost:$SEARXNG_PORT"
 echo "  豆包 STT:  http://localhost:$STT_PORT/health"
-echo "  Gateway:   ws://localhost:$GATEWAY_PORT"
-echo "  OpenCami:  http://localhost:$CAMI_PORT"
 echo "  🎐 风铃:   http://localhost:$VOICE_PORT"
 echo "  Timer API: http://localhost:$TIMER_API_PORT/health"
+echo "  Agent:     model=${AGENT_MODEL:-gemini-3.1-pro-preview}"
 if [ -n "$LAN_IP" ]; then
-  echo "  局域网:    http://$LAN_IP:$CAMI_PORT"
+  echo "  局域网:    http://$LAN_IP:$VOICE_PORT"
 fi
 if [ -n "${TUNNEL_URL:-}" ]; then
   echo ""
@@ -198,8 +163,6 @@ fi
 echo ""
 echo "  日志:"
 echo "    tail -f /tmp/doubao-stt-proxy.log"
-echo "    tail -f /tmp/openclaw-gateway.log"
-echo "    tail -f /tmp/opencami.log"
 echo "    tail -f /tmp/voice-chat.log"
 echo "    tail -f /tmp/telegram-bot.log"
 echo "    tail -f /tmp/cloudflared.log"

@@ -14,10 +14,6 @@ npm 安装依赖时找不到 git。Dockerfile 中确保：
 apt-get install -y --no-install-recommends ... git
 ```
 
-### `openclaw: Node.js v22.12+ is required`
-
-基础镜像必须是 `node:22-slim` 或更高，不能用 `node:20`。
-
 ### `sed` 报 `unknown option to 's'`
 
 替换包含 `/` 的字符串（如 URL）时，`sed` 默认分隔符 `/` 会冲突。
@@ -29,44 +25,6 @@ import pathlib, sys
 f = pathlib.Path(sys.argv[1])
 f.write_text(f.read_text().replace(sys.argv[2], sys.argv[3]))
 " /path/to/file "old_string" "new_string"
-```
-
----
-
-## OpenClaw / OpenCami
-
-### `origin not allowed`
-
-Gateway 日志显示 `origin=n/a` 并拒绝连接。
-需要为 OpenCami 设置 Origin 环境变量：
-
-```bash
-OPENCAMI_ORIGIN="http://localhost:${OPENCAMI_PORT:-3000}"
-```
-
-### `missing required scope: operator.read`
-
-新设备首次连接后无操作权限。需要执行：
-
-```bash
-openclaw devices rotate \
-  --device <DEVICE_ID> --role operator \
-  --scope operator.admin --scope operator.approvals \
-  --scope operator.pairing --scope operator.read --scope operator.write
-```
-
-设备 ID 通过 `openclaw devices list` 获取。此步骤已在 `docker/entrypoint.sh` 中自动化。
-
-### `allowedOrigins` 导致 Tunnel 域名被拒
-
-`openclaw.json` 的 `controlUi.allowedOrigins` 必须包含 Tunnel 域名：
-
-```json
-"allowedOrigins": [
-  "http://localhost:3000",
-  "http://127.0.0.1:3000",
-  "https://*.trycloudflare.com"
-]
 ```
 
 ---
@@ -248,6 +206,4 @@ def browser(pw):
 - **Bearer 后面是分号**（`Bearer;token`），不是空格
 - **Docker 内网络限制多**，优先 HTTP/2 而非 QUIC
 - **Android 模拟器的 localhost ≠ 宿主机**，用 `10.0.2.2`
-- **Gateway Telegram channel 与自定义 Bot 不能同时 polling** — 同一 bot token 的 `getUpdates` 只能有一个消费者，否则 409 Conflict
-- **cron `--announce` 对 operator WebSocket 无效** — Gateway 无法反查 operator 连接对应的 Telegram 用户，解析为 `@heartbeat` 后失败
-- **禁用 Gateway channel 后 cron agent turn 也无法启动** — cron 系统内部仍要求 channel 存在，即使 `--no-deliver` 也会静默失败（job disabled but not deleted）
+- **同一 Telegram bot token 的 `getUpdates` 只能有一个消费者**，否则 409 Conflict

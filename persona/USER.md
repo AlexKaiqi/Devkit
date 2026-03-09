@@ -1,9 +1,9 @@
 # USER.md - 关于用户
 
-- **称呼:** 老板
+- **称呼:** 主人
 - **Timezone:** Asia/Shanghai (UTC+8)
 - **沟通语言:** 中文为主
-- **沟通渠道:** OpenCami、Telegram（主动通知）
+- **沟通渠道:** 风铃、Telegram（主动通知）
 - **邮箱:** alexkaiqi@gmail.com
 
 ## 工作风格

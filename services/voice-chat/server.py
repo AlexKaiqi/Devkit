@@ -1,6 +1,6 @@
 """
 Voice Chat Service — push-to-talk voice interface for 希露菲.
-Architecture: Browser ←→ FastAPI (STT + TTS) ←→ OpenClaw Gateway (Agent)
+Architecture: Browser ←→ FastAPI (STT + TTS) ←→ LocalAgent
 """
 
 import base64
@@ -24,7 +24,7 @@ import uvicorn
 
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from gateway_client import GatewayClient
+from agent import AgentBackend, LocalAgent
 
 # ── Logging ──────────────────────────────────────────
 
@@ -102,19 +102,10 @@ VOICES = [
     {"id": "zh_male_linjiananhai_moon_bigtts", "name": "邻家男孩", "gender": "男", "tag": "自然"},
 ]
 
-# ── Gateway client (replaces direct LLM) ─────────────
+# ── Agent ─────────────────────────────────────────────
 
-GATEWAY_PORT = os.environ.get("OPENCLAW_GATEWAY_PORT", "18789")
-GATEWAY_TOKEN = os.environ.get("OPENCLAW_GATEWAY_TOKEN", "")
+agent = LocalAgent()
 
-gw = GatewayClient(
-    gateway_url=f"ws://127.0.0.1:{GATEWAY_PORT}",
-    token=GATEWAY_TOKEN,
-    client_display_name="风铃",
-    device_name="fengling",
-)
-
-# Map browser session IDs to Gateway session keys
 _session_keys: dict[str, str] = {}
 
 CODE_BLOCK_RE = re.compile(r"```(\w*)\n(.*?)```", re.DOTALL)
@@ -183,7 +174,7 @@ async def get_http() -> aiohttp.ClientSession:
 async def _shutdown():
     if _http and not _http.closed:
         await _http.close()
-    await gw.close()
+    pass
 
 
 # ── Routes ───────────────────────────────────────────
@@ -226,20 +217,11 @@ async def api_extract_frames(video: UploadFile = File(...)):
 
 
 async def _resolve_session(session_id: str) -> str:
-    """Get or create a Gateway session key for a browser session."""
     if session_id in _session_keys:
         return _session_keys[session_id]
-    try:
-        await gw.ensure_connected()
-        friendly = f"fengling-{session_id[:8]}"
-        sk = await gw.resolve_session(friendly)
-        _session_keys[session_id] = sk
-        return sk
-    except Exception as e:
-        log.error("Failed to resolve session: %s", e)
-        sk = f"fengling-{session_id[:8]}"
-        _session_keys[session_id] = sk
-        return sk
+    sk = f"fengling-{session_id[:8]}"
+    _session_keys[session_id] = sk
+    return sk
 
 
 @app.post("/api/chat")
@@ -265,7 +247,7 @@ async def chat(request: Request):
         full_response = ""
         first_token_ms = None
         try:
-            async for evt in gw.chat_send(session_key, user_msg or "请看看这些内容", attachments=attachments):
+            async for evt in agent.chat_send(session_key, user_msg or "请看看这些内容", attachments=attachments):
                 if evt["type"] == "text":
                     if first_token_ms is None:
                         first_token_ms = round((time.monotonic() - t0) * 1000)

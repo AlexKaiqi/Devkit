@@ -20,45 +20,38 @@ check_cmd() {
   return 0
 }
 
-echo "[1/9] 检查系统依赖..."
+echo "[1/7] 检查系统依赖..."
 missing=0
-check_cmd node    || missing=1
-check_cmd npm     || missing=1
 check_cmd python3 || missing=1
 check_cmd git     || missing=1
-check_cmd cursor  || { echo "       Cursor CLI: https://www.cursor.com/"; missing=1; }
 
 if [ "$missing" -eq 1 ]; then
   echo ""
   echo "请先安装缺失的依赖，然后重新运行此脚本。"
-  echo "  brew install node python@3.12 git"
+  echo "  brew install python@3.12 git"
   exit 1
 fi
 echo ""
 
 # ── 2. .env 文件 ─────────────────────────────
 
-echo "[2/9] 检查 .env..."
+echo "[2/7] 检查 .env..."
 if [ ! -f "$SCRIPT_DIR/.env" ]; then
   cp "$SCRIPT_DIR/.env.example" "$SCRIPT_DIR/.env"
-  # Auto-generate OPENCLAW_GATEWAY_TOKEN
-  TOKEN=$(openssl rand -hex 16 2>/dev/null || python3 -c "import secrets; print(secrets.token_hex(16))")
-  sed -i '' "s/^OPENCLAW_GATEWAY_TOKEN=$/OPENCLAW_GATEWAY_TOKEN=$TOKEN/" "$SCRIPT_DIR/.env"
   echo "  已创建 .env（从 .env.example 复制）"
-  echo "  已自动生成 OPENCLAW_GATEWAY_TOKEN"
   echo "  ⚠️  请编辑 .env 填入实际凭据，然后重新运行此脚本"
   echo ""
   echo "  必填项:"
   echo "    DOUBAO_APPID       — 火山引擎语音 AppID"
   echo "    DOUBAO_TOKEN       — 火山引擎语音 Token"
-  echo ""
-  echo "  LLM 配置在后续 openclaw onboard 步骤中完成（不在 .env 里）"
+  echo "    LLM_API_KEY        — LLM 代理 API Key"
+  echo "    LLM_BASE_URL       — LLM 代理 Base URL"
   exit 0
 fi
 
 source "$SCRIPT_DIR/.env"
 
-required_vars=(DOUBAO_APPID DOUBAO_TOKEN OPENCLAW_GATEWAY_TOKEN)
+required_vars=(DOUBAO_APPID DOUBAO_TOKEN LLM_API_KEY LLM_BASE_URL)
 for var in "${required_vars[@]}"; do
   if [ -z "${!var:-}" ]; then
     echo "  ✗ $var 未设置，请编辑 .env"
@@ -70,7 +63,7 @@ echo ""
 
 # ── 3. Python 虚拟环境 ───────────────────────
 
-echo "[3/9] 配置 Python 虚拟环境..."
+echo "[3/7] 配置 Python 虚拟环境..."
 
 PYTHON_BIN="python3"
 if [ -x "/opt/homebrew/opt/python@3.12/bin/python3.12" ]; then
@@ -101,7 +94,7 @@ echo ""
 
 # ── 4. Homebrew CLI 工具 ─────────────────────
 
-echo "[4/9] 安装 CLI 工具 (Homebrew)..."
+echo "[4/7] 安装 CLI 工具 (Homebrew)..."
 
 BREW_TOOLS=(gh himalaya rclone pandoc peekaboo)
 for tool in "${BREW_TOOLS[@]}"; do
@@ -114,40 +107,9 @@ for tool in "${BREW_TOOLS[@]}"; do
 done
 echo ""
 
-# ── 5. OpenClaw ──────────────────────────────
+# ── 5. Docker 检查 ───────────────────────────
 
-echo "[5/9] 检查 OpenClaw..."
-if ! command -v openclaw &>/dev/null; then
-  echo "  安装 OpenClaw..."
-  npm install -g openclaw
-fi
-echo "  ✓ OpenClaw $(openclaw --version 2>/dev/null | head -1 || echo 'installed')"
-
-if [ ! -f "$HOME/.openclaw/openclaw.json" ]; then
-  echo "  首次安装，运行 onboard..."
-  openclaw onboard
-fi
-echo ""
-
-# ── 6. 同步 Agent 配置 ───────────────────────
-
-echo "[6/9] 同步 Agent 配置到 OpenClaw..."
-bash "$SCRIPT_DIR/openclaw/sync.sh"
-echo ""
-
-# ── 7. OpenCami ──────────────────────────────
-
-echo "[7/9] 检查 OpenCami..."
-if ! npx opencami --help &>/dev/null 2>&1; then
-  echo "  安装 OpenCami..."
-  npm install -g opencami
-fi
-echo "  ✓ OpenCami 已安装"
-echo ""
-
-# ── 8. Docker 检查 ───────────────────────────
-
-echo "[8/9] 检查 Docker (SearXNG 依赖)..."
+echo "[5/7] 检查 Docker (SearXNG 依赖)..."
 if command -v docker &>/dev/null; then
   echo "  ✓ Docker 已安装"
   if docker info &>/dev/null 2>&1; then
@@ -161,13 +123,13 @@ else
 fi
 echo ""
 
-# ── 9. 定时巡检 (launchd) ────────────────────
+# ── 6. 定时巡检 (launchd) ────────────────────
 
 PLIST_SRC="$SCRIPT_DIR/services/heartbeat/com.devkit.heartbeat.plist"
 PLIST_DST="$HOME/Library/LaunchAgents/com.devkit.heartbeat.plist"
 
 if [ -f "$PLIST_SRC" ]; then
-  echo "[9/9] 配置定时巡检 (heartbeat)..."
+  echo "[6/7] 配置定时巡检 (heartbeat)..."
   if [ -f "$PLIST_DST" ]; then
     echo "  ✓ launchd plist 已安装"
   else

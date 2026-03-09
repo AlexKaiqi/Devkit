@@ -65,22 +65,19 @@
 
 ### 延时任务 → 唯一方式：timer.sh
 
-当用户说"X 分钟/秒后做某事"时：立即用 bash 执行 `timer.sh` → 回复确认 → 结束当前 turn。
+当用户说"X 分钟/秒后做某事"时：用 exec 工具执行 `timer.sh` → 回复确认。
 
-```bash
-bash command:"./scripts/timer.sh 秒数 '到期后要说的话'"
+```
+exec: ./scripts/timer.sh 秒数 '到期后要说的话'
 ```
 
 **示例：**
-- 用户说"10 秒后提醒我" → `bash command:"./scripts/timer.sh 10 '主人，10秒到啦~'"` → 回复"已设好"
-- 用户说"5 分钟后提醒我开会" → `bash command:"./scripts/timer.sh 300 '主人，该开会了'"` → 回复"已设好"
+- 用户说"10 秒后提醒我" → exec `./scripts/timer.sh 10 '主人，10秒到啦~'` → 回复"已设好"
+- 用户说"5 分钟后提醒我开会" → exec `./scripts/timer.sh 300 '主人，该开会了'` → 回复"已设好"
 
-timer.sh 会调用 Timer API 创建事件驱动定时器，到期后自动投递 Telegram 消息。**必须用 bash 工具实际执行命令**，不能只回复"设好了"而不执行。
+timer.sh 会调用 Timer API 创建事件驱动定时器，到期后自动投递 Telegram 消息。**必须用 exec 工具实际执行命令**，不能只回复"设好了"而不执行。
 
-> 高级用法（直接调用 API）见 [REFERENCE.md](REFERENCE.md#延时任务模板事件驱动)
-
-**⚠️ 严禁以下方式（均已验证不可用）：**
-- **❌ `openclaw cron add`** — Gateway Telegram channel 已禁用，cron 静默失败（"Channel is required"）
+**⚠️ 严禁以下方式：**
 - **❌ 前台 `sleep`** — 阻塞整个 turn，用户无法与你交流
 - **❌ 后台 `sleep && notify`** — 无法携带会话上下文，且进程不可靠
 

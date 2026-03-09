@@ -21,7 +21,7 @@
 
 ## 重要背景
 
-- 项目 Devkit：AI 分身平台，通过 OpenClaw + Cursor CLI 调度
+- 项目 Devkit：AI 分身平台，通过 LocalAgent + Cursor CLI 调度
 - AI 分身名字：希露菲（无职转生角色），性格温柔+干练
 - 服务架构：SearXNG(:8080) + STT(:8787) + Gateway(:18789) + OpenCami(:3000)
 - SearXNG 通过 docker-compose.yml 管理，settings.yml 启用 JSON API
