@@ -1,0 +1,48 @@
+{
+  "id": "memory-correction-001",
+  "title": "用户纠正错误记忆后系统应更新并不再重犯",
+  "capability": "memory-knowledge",
+  "category": "core",
+  "channel": "fengling",
+  "scenario": "当系统使用了记忆中过时或错误的信息，用户明确纠正后，系统应立即接受并在后续交互中使用更新后的信息。",
+  "input": {
+    "user_message": "不对，我的工作邮箱已经换成 kai@newcompany.com 了，把这个记下来。",
+    "attachments": []
+  },
+  "context": {
+    "preconditions": [
+      "MEMORY.md 中记录了旧的工作邮箱",
+      "系统在当前或上一轮对话中使用了旧邮箱"
+    ]
+  },
+  "expected": {
+    "must": [
+      "明确确认已收到纠正",
+      "更新 MEMORY.md 中的邮箱记录",
+      "在同一会话后续请求中使用新邮箱",
+      "新邮箱写入可追溯来源（用户明确提供）"
+    ],
+    "must_not": [
+      "继续使用旧邮箱",
+      "只在当前对话临时记住，不持久化",
+      "在没有澄清的情况下同时保留新旧两个值造成歧义"
+    ]
+  },
+  "evidence": {
+    "required": [
+      "assistant_response",
+      "memory_write_trace"
+    ]
+  },
+  "evaluation": {
+    "mode": "hybrid",
+    "deterministic_checks": [
+      "memory_updated",
+      "old_value_overwritten_or_deprecated"
+    ],
+    "llm_judge": {
+      "rubric": "memory_utilization_v1",
+      "min_score": 4
+    }
+  }
+}

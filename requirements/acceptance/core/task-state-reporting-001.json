@@ -1,0 +1,52 @@
+{
+  "id": "task-state-reporting-001",
+  "title": "长任务应立即给出确认并进入可追踪状态",
+  "capability": "task-lifecycle",
+  "category": "core",
+  "channel": "fengling",
+  "scenario": "用户发起一个需要较长时间执行的任务时，系统不应阻塞主对话，而应立即给出确认并进入可追踪状态，等任务完成后主动回报。",
+  "input": {
+    "user_message": "帮我把 ~/papers 目录下所有 PDF 扫一遍，找出和机器学习相关的论文，整理成列表。",
+    "attachments": []
+  },
+  "context": {
+    "preconditions": [
+      "~/papers 目录存在并包含大量文件",
+      "当前无高风险副作用（只读操作）",
+      "任务预计执行时间超过 10 秒"
+    ]
+  },
+  "expected": {
+    "must": [
+      "在 5 秒内给出任务已接受的即时确认",
+      "生成可追踪的 task_id",
+      "任务进入 running 或 queued 状态",
+      "完成后主动把结果或摘要带回给用户",
+      "任务状态始终处于定义好的状态之一"
+    ],
+    "must_not": [
+      "阻塞主对话直到任务完成才回复",
+      "完成后不主动通知，需要用户追问",
+      "任务中途静默失败不给任何反馈"
+    ]
+  },
+  "evidence": {
+    "required": [
+      "assistant_response",
+      "task_record",
+      "notification_trace"
+    ]
+  },
+  "evaluation": {
+    "mode": "hybrid",
+    "deterministic_checks": [
+      "task_id_created",
+      "immediate_ack_response",
+      "completion_notification_sent"
+    ],
+    "llm_judge": {
+      "rubric": "task_continuation_v1",
+      "min_score": 4
+    }
+  }
+}

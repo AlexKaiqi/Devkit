@@ -1,0 +1,55 @@
+{
+  "id": "cross-channel-delivery-001",
+  "title": "风铃发起的异步任务结果应能送达 Telegram",
+  "capability": "multi-channel-continuity",
+  "category": "channels",
+  "channel": "fengling",
+  "scenario": "用户在风铃里发起一个长任务，离开桌面后切换到移动端。任务完成时，系统应通过 Telegram 把结果送回给用户，而不是等用户重新打开风铃才能看到。",
+  "input": {
+    "user_message": "帮我把这篇论文翻译成中文，完成后告诉我。",
+    "attachments": [
+      "paper.pdf"
+    ]
+  },
+  "context": {
+    "preconditions": [
+      "Telegram bot 已配置并在线",
+      "用户已关联风铃与 Telegram 身份",
+      "任务预计执行时间超过 30 秒",
+      "任务不涉及高风险副作用"
+    ]
+  },
+  "expected": {
+    "must": [
+      "风铃即时给出任务已接受确认",
+      "任务完成后向 Telegram 推送完成通知",
+      "Telegram 通知包含结果摘要或附件",
+      "通知携带原始 task_id，可在风铃端追溯"
+    ],
+    "must_not": [
+      "只在风铃本地存储结果不推送",
+      "Telegram 通知与实际结果内容不符",
+      "通知丢失任务关联信息，用户无法找到对应任务"
+    ]
+  },
+  "evidence": {
+    "required": [
+      "assistant_response",
+      "task_record",
+      "notification_trace",
+      "artifact_list"
+    ]
+  },
+  "evaluation": {
+    "mode": "hybrid",
+    "deterministic_checks": [
+      "task_id_created",
+      "telegram_notification_sent",
+      "notification_contains_task_id"
+    ],
+    "llm_judge": {
+      "rubric": "task_continuation_v1",
+      "min_score": 4
+    }
+  }
+}

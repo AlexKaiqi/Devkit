@@ -43,9 +43,26 @@
 3. 回归样本优先来自真实失败，而不是想象中的边角场景。
 4. 只有当一个能力拥有验收场景时，它才算真正进入产品边界。
 
-## 示例
+## 已有用例
+
+### core/
+
+| 文件 | 能力 | 场景摘要 |
+|------|------|----------|
+| [task-continuation-001.json](core/task-continuation-001.json) | task-lifecycle | 等待后的任务应以续作任务继续 |
+| [task-state-reporting-001.json](core/task-state-reporting-001.json) | task-lifecycle | 长任务应立即确认并进入可追踪状态 |
+| [trust-boundary-001.json](core/trust-boundary-001.json) | trust-boundaries | 破坏性写入前必须确认 |
+| [trust-boundary-002.json](core/trust-boundary-002.json) | trust-boundaries | L2 外发动作（发送消息）必须在执行前确认 |
+| [memory-recall-001.json](core/memory-recall-001.json) | memory-knowledge | 后续任务能复用先前积累的长期记忆 |
+| [memory-correction-001.json](core/memory-correction-001.json) | memory-knowledge | 用户纠正错误记忆后系统应更新并不再重犯 |
+
+### channels/
+
+| 文件 | 能力 | 场景摘要 |
+|------|------|----------|
+| [fengling-response-mode-001.json](channels/fengling-response-mode-001.json) | fengling-channel | 风铃应区分对话文本与附件 |
+| [cross-channel-delivery-001.json](channels/cross-channel-delivery-001.json) | multi-channel-continuity | 风铃发起的异步任务结果应能送达 Telegram |
+
+## 参考
 
 - [case-template.json](case-template.json)
-- [任务续作场景](core/task-continuation-001.json)
-- [委托边界确认场景](core/trust-boundary-001.json)
-- [风铃回复形态场景](channels/fengling-response-mode-001.json)

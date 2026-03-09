@@ -21,11 +21,15 @@
 ## 建议阅读顺序
 
 1. [系统设计总览](architecture/system-overview.md)
-2. [Runtime Core](architecture/runtime-core.md)
-3. [风铃渠道设计](architecture/channel-fengling.md)
-4. [模型适配层](architecture/model-adapter.md)
-5. [数据与知识设计](architecture/data-knowledge.md)
-6. [事件系统接口](interfaces/event-system.md)
-7. [AI 原生开发范式](decisions/ai-native-development.md)
-8. [AI 原生开发清单](decisions/ai-native-development-checklist.md)
-9. [评测协议](evaluation/eval-protocol.md)
+2. [Runtime Core](architecture/runtime-core.md)（含 Context Assembly 策略）
+3. [Policy Check](architecture/policy-check.md)
+4. [Session Identity 与跨渠道连续性](architecture/session-identity.md)
+5. [Knowledge Gateway](architecture/knowledge-gateway.md)
+6. [风铃渠道设计](architecture/channel-fengling.md)
+7. [模型适配层](architecture/model-adapter.md)
+8. [数据与知识设计](architecture/data-knowledge.md)
+9. [事件系统接口](interfaces/event-system.md)
+10. [AI 原生开发范式](decisions/ai-native-development.md)
+11. [AI 原生开发清单](decisions/ai-native-development-checklist.md)
+12. [评测协议](evaluation/eval-protocol.md)
+13. [指标采集方案](evaluation/metrics-collection.md)

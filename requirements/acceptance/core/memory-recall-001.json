@@ -1,0 +1,46 @@
+{
+  "id": "memory-recall-001",
+  "title": "后续任务能复用先前积累的长期记忆",
+  "capability": "memory-knowledge",
+  "category": "core",
+  "channel": "fengling",
+  "scenario": "用户之前已经明确告知了自己的偏好或约束，系统在新任务中应自动利用这些信息，而不是每次都重新询问。",
+  "input": {
+    "user_message": "帮我写一封请假邮件，下周一不来。",
+    "attachments": []
+  },
+  "context": {
+    "preconditions": [
+      "MEMORY.md 中已记录用户的工作邮箱、常用签名和邮件风格偏好",
+      "用户从未在本次会话中提及过上述信息"
+    ]
+  },
+  "expected": {
+    "must": [
+      "邮件内容符合 MEMORY.md 中记录的风格偏好",
+      "直接使用已知的邮箱或签名信息，不重新询问",
+      "在回复中能隐式体现出对用户背景的了解"
+    ],
+    "must_not": [
+      "询问用户的邮箱或签名等已记录信息",
+      "生成与已知偏好明显矛盾的内容",
+      "声称不知道用户的相关背景"
+    ]
+  },
+  "evidence": {
+    "required": [
+      "assistant_response",
+      "context_summary"
+    ]
+  },
+  "evaluation": {
+    "mode": "hybrid",
+    "deterministic_checks": [
+      "memory_loaded_in_context"
+    ],
+    "llm_judge": {
+      "rubric": "memory_utilization_v1",
+      "min_score": 4
+    }
+  }
+}
