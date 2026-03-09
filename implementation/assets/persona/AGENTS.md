@@ -55,8 +55,18 @@
 - `design/` — 设计
 - `implementation/` — 实现
 
+涉及新能力或重要改动时，优先顺序应是：
+
+1. 先在 `requirements/acceptance/` 写验收场景
+2. 再在 `design/evaluation/` 补评测方式或 rubric
+3. 最后才修改 `implementation/`
+
+执行时优先对照 `design/decisions/ai-native-development-checklist.md`，不要只记住原则，不落执行顺序。
+
 完成任务后更新：
 
 - `requirements/product/goals.md`（如果目标变化）
 - `design/decisions/README.md` 或相关决策文档（如果设计边界变化）
+- `design/decisions/ai-native-development.md`（如果开发范式理解被修正）
+- `design/decisions/ai-native-development-checklist.md`（如果默认开发流程需要修正）
 - `implementation/STATUS.md`（当前状态与最近完成项）

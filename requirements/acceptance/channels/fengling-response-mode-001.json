@@ -1,0 +1,48 @@
+{
+  "id": "fengling-response-mode-001",
+  "title": "风铃应区分对话文本与附件",
+  "capability": "fengling-channel",
+  "category": "channels",
+  "channel": "fengling",
+  "scenario": "用户在风铃请求代码修改建议时，系统应把自然语言解释和代码产物分开展示。",
+  "input": {
+    "user_message": "帮我写一个 Python 函数读取 JSON 文件并解释一下。",
+    "attachments": []
+  },
+  "context": {
+    "preconditions": [
+      "风铃是主入口",
+      "本场景同时需要自然语言解释和代码产物"
+    ]
+  },
+  "expected": {
+    "must": [
+      "返回可阅读的解释文本",
+      "把代码作为附件或独立产物输出",
+      "允许语音部分只覆盖自然语言说明"
+    ],
+    "must_not": [
+      "把完整代码混进朗读文本",
+      "只给代码不解释",
+      "把结构化产物丢失在单段聊天里"
+    ]
+  },
+  "evidence": {
+    "required": [
+      "assistant_response",
+      "attachment_payload",
+      "channel_render_trace"
+    ]
+  },
+  "evaluation": {
+    "mode": "hybrid",
+    "deterministic_checks": [
+      "attachment_present_when_code_generated",
+      "spoken_text_excludes_code_block"
+    ],
+    "llm_judge": {
+      "rubric": "fengling_response_mode_v1",
+      "min_score": 4
+    }
+  }
+}

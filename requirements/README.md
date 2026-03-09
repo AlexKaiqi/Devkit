@@ -16,6 +16,7 @@
 | [channels/](channels/) | 风铃等入口的交互需求 |
 | [domains/](domains/) | 开发、科研、人际等专业能力需求 |
 | [capabilities/](capabilities/) | 能力需求总览 |
+| [acceptance/](acceptance/) | 实现前定义的验收场景与回归样本 |
 
 ## 核心文档
 
@@ -26,3 +27,4 @@
 - [信任模型与委托边界](core/trust-boundaries.md)
 - [记忆层与知识层](core/memory-knowledge.md)
 - [能力需求总览](capabilities/overview.md)
+- [验收用例索引](acceptance/README.md)

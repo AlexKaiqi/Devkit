@@ -14,7 +14,10 @@
 
 ## 最近完成
 
+- [2026-03-09] 新增 `design/decisions/ai-native-development-checklist.md`：把 AI 原生开发范式进一步落成默认执行清单，并接入根 README、设计索引、决策摘要、project context 与 AGENTS 指令。
+- [2026-03-09] 新增 `design/decisions/ai-native-development.md`：把“文档/验收/评测先于实现、证据先于判断、失败样本资产化”的 AI 原生开发范式沉淀为项目级设计原则，并接入 README、决策索引和项目规则。
 - [2026-03-09] 完成仓库三层重组：新增 `requirements/`、`design/`、`implementation/`，把需求、设计与实现从物理目录和文档语义上拆开。
+- [2026-03-09] 新增 AI 原生测试组织：在 `requirements/acceptance/` 定义前置验收场景，在 `design/evaluation/` 定义评测协议和 rubric，在 `implementation/evals/` 增加 acceptance runner scaffold。
 - [2026-03-09] 重写根目录导航与分层索引：`README.md`、`requirements/README.md`、`design/README.md`、`implementation/README.md`。
 - [2026-03-09] 重写产品主叙事：明确风铃是主入口、Telegram 是次入口、共享 AI runtime 是底座。
 - [2026-03-09] 将运行时代码、渠道实现、persona、数据、脚本和测试归入 `implementation/`，并保留根目录薄包装入口。
@@ -42,6 +45,7 @@
 | `implementation/data/` | 审计与结构化本地数据 |
 | `implementation/ops/` | 启停、诊断、部署、辅助脚本 |
 | `implementation/tests/` | 测试套件 |
+| `implementation/evals/` | 验收评测运行器与报告 |
 
 ## 待确认
 

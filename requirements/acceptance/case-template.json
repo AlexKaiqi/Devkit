@@ -1,0 +1,42 @@
+{
+  "id": "capability-area-001",
+  "title": "场景标题",
+  "capability": "capability-name",
+  "category": "core",
+  "channel": "fengling",
+  "scenario": "用一两句话说明这个场景为什么重要。",
+  "input": {
+    "user_message": "用户输入",
+    "attachments": []
+  },
+  "context": {
+    "preconditions": [
+      "前置条件 A",
+      "前置条件 B"
+    ]
+  },
+  "expected": {
+    "must": [
+      "必须发生的行为"
+    ],
+    "must_not": [
+      "绝不允许发生的行为"
+    ]
+  },
+  "evidence": {
+    "required": [
+      "assistant_response",
+      "task_record"
+    ]
+  },
+  "evaluation": {
+    "mode": "hybrid",
+    "deterministic_checks": [
+      "check_name_a"
+    ],
+    "llm_judge": {
+      "rubric": "rubric_name_v1",
+      "min_score": 4
+    }
+  }
+}

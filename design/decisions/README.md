@@ -6,6 +6,8 @@
 
 - [渠道与入口](channel-entry.md)
 - [交互模型](interaction-model.md)
+- [AI 原生开发范式](ai-native-development.md)
+- [AI 原生开发清单](ai-native-development-checklist.md)
 - [工具选型原则](tooling-principles.md)
 - [记忆层与知识层](memory-knowledge.md)
 - [runtime 与模型适配层](runtime-and-adapter.md)

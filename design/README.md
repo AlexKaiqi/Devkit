@@ -15,6 +15,7 @@
 | [interfaces/](interfaces/) | 事件、任务、工具等契约 |
 | [decisions/](decisions/) | 仍然生效的设计决策 |
 | [tooling/](tooling/) | 工具选型原则与取舍 |
+| [evaluation/](evaluation/) | AI 原生测试与评测协议设计 |
 | [service-map.md](service-map.md) | 设计上的服务职责映射 |
 
 ## 建议阅读顺序
@@ -25,3 +26,6 @@
 4. [模型适配层](architecture/model-adapter.md)
 5. [数据与知识设计](architecture/data-knowledge.md)
 6. [事件系统接口](interfaces/event-system.md)
+7. [AI 原生开发范式](decisions/ai-native-development.md)
+8. [AI 原生开发清单](decisions/ai-native-development-checklist.md)
+9. [评测协议](evaluation/eval-protocol.md)

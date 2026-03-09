@@ -1,0 +1,51 @@
+# 验收用例
+
+`requirements/acceptance/` 用来定义“实现之前就应该存在”的验收场景。
+
+这里的内容属于需求，而不是实现测试代码。它回答的是：
+
+- 要验证什么用户承诺
+- 哪些行为必须发生
+- 哪些行为绝对不能发生
+- 最终怎样才算通过
+
+## 边界
+
+- 可以写：场景、输入、上下文、期望行为、禁止行为、通过标准、所需证据。
+- 不写：端口、类名、脚本命令、测试框架、具体 runner 实现。
+
+## 目录建议
+
+| 目录 | 说明 |
+|------|------|
+| `core/` | 通用能力的验收场景 |
+| `channels/` | 风铃、Telegram 等入口体验验收 |
+| `domains/` | 开发、科研、人际等专业能力验收 |
+| `regressions/` | 从真实失败案例沉淀出的回归样本 |
+
+## 一个验收用例应包含
+
+- `id`：稳定标识
+- `title`：场景名称
+- `capability`：对应能力
+- `scenario`：用户场景描述
+- `input`：用户输入
+- `context`：前置条件
+- `expected.must`：必须满足的行为
+- `expected.must_not`：绝不能发生的行为
+- `evidence.required`：判断是否通过时需要的证据
+- `evaluation`：建议的评测方式，例如 deterministic / llm / hybrid
+
+## 原则
+
+1. 先写验收用例，再写实现。
+2. 验收用例优先围绕用户任务，而不是围绕内部模块。
+3. 回归样本优先来自真实失败，而不是想象中的边角场景。
+4. 只有当一个能力拥有验收场景时，它才算真正进入产品边界。
+
+## 示例
+
+- [case-template.json](case-template.json)
+- [任务续作场景](core/task-continuation-001.json)
+- [委托边界确认场景](core/trust-boundary-001.json)
+- [风铃回复形态场景](channels/fengling-response-mode-001.json)

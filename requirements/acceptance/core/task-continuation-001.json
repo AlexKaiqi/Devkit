@@ -1,0 +1,54 @@
+{
+  "id": "task-continuation-001",
+  "title": "等待后的任务应以续作任务继续",
+  "capability": "task-lifecycle",
+  "category": "core",
+  "channel": "fengling",
+  "scenario": "用户在风铃里让系统稍后继续处理当前工作，系统应以新续作任务继续推进，而不是假装完整恢复旧上下文。",
+  "input": {
+    "user_message": "半小时后提醒我继续改这个模块，并接着上次做到一半的修改继续。",
+    "attachments": [
+      "patch.diff"
+    ]
+  },
+  "context": {
+    "preconditions": [
+      "当前已有一个进行中的开发任务",
+      "任务已经产生附件和中间产物",
+      "当前请求不会立即产生外部副作用"
+    ]
+  },
+  "expected": {
+    "must": [
+      "创建可追踪的续作任务",
+      "保留已有附件和关键上下文摘要",
+      "立即给出异步确认，而不是阻塞主对话",
+      "到期后能把结果或下一步带回给用户"
+    ],
+    "must_not": [
+      "假装完整恢复旧对话上下文",
+      "丢失原任务的附件和状态",
+      "无理由重复已经执行过的副作用操作"
+    ]
+  },
+  "evidence": {
+    "required": [
+      "assistant_response",
+      "task_record",
+      "artifact_list",
+      "notification_trace"
+    ]
+  },
+  "evaluation": {
+    "mode": "hybrid",
+    "deterministic_checks": [
+      "continuation_task_created",
+      "artifacts_preserved",
+      "notification_scheduled"
+    ],
+    "llm_judge": {
+      "rubric": "task_continuation_v1",
+      "min_score": 4
+    }
+  }
+}

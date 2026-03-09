@@ -8,6 +8,7 @@
 - 保持多入口共享同一分身 runtime，而不是按渠道拆成多个产品。
 - 把产品资产沉淀在本地 runtime 管理的任务、记忆、知识、工具协议中，而不是绑定到某家模型供应商的原生能力。
 - 通过清晰的需求层、设计层、实现层分离，避免产品定义和实现细节互相污染。
+- 让验收场景先于实现存在，使 AI 的实现结果能被需求层用例和设计层评测协议共同约束。
 
 ## 总体结构
 
@@ -80,6 +81,16 @@ Runtime Core 负责：
 | `design/` | 系统如何组织、为什么这样设计 | 当前完成度、一次性运行步骤 |
 | `implementation/` | 实际代码、脚本、测试与运行现状 | 重新定义产品需求 |
 
+## AI 原生验证闭环
+
+仓库中的验证链路也遵循三层分离：
+
+1. `requirements/acceptance/` 先定义用户场景和通过标准。
+2. `design/evaluation/` 定义测试分型、evidence trace 和 judge rubric。
+3. `implementation/tests/` 与 `implementation/evals/` 负责运行、收集证据和生成报告。
+
+这样测试不再只是“实现后的自测代码”，而是 AI 实现前就存在的产品约束。
+
 ## 进一步阅读
 
 - [Runtime Core](runtime-core.md)
@@ -87,4 +98,5 @@ Runtime Core 负责：
 - [模型适配层](model-adapter.md)
 - [数据与知识设计](data-knowledge.md)
 - [事件系统接口](../interfaces/event-system.md)
+- [评测协议](../evaluation/eval-protocol.md)
 - [服务职责映射](../service-map.md)

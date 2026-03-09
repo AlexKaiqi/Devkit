@@ -18,6 +18,7 @@
 | [data/](data/) | 审计与结构化本地数据 |
 | [ops/](ops/) | 启停、诊断、部署、辅助脚本 |
 | [tests/](tests/) | 测试套件 |
+| [evals/](evals/) | AI 原生验收评测运行器与报告 |
 | [STATUS.md](STATUS.md) | 当前实现状态与最近进展 |
 
 ## 常用入口
@@ -30,3 +31,8 @@
 ```
 
 这些根目录命令会转发到 `implementation/ops/` 下的实际脚本。
+
+## `tests/` 与 `evals/` 的区别
+
+- `implementation/tests/`：确定性工程测试，如 unit / integration / component / e2e。
+- `implementation/evals/`：面向需求层验收 case 的运行器、报告和 evidence 处理。

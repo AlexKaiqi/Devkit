@@ -17,15 +17,19 @@
 |------|------|
 | [requirements/](requirements/README.md) | 产品需求、能力需求、验收标准 |
 | [design/](design/README.md) | 目标架构、接口契约、设计决策 |
-| [implementation/](implementation/README.md) | 源码、运行资产、脚本、测试、当前状态 |
+| [implementation/](implementation/README.md) | 源码、运行资产、脚本、测试、评测与当前状态 |
 
 ## 推荐阅读顺序
 
 1. [产品总览](requirements/product/overview.md)
 2. [项目目标](requirements/product/goals.md)
-3. [能力需求总览](requirements/capabilities/overview.md)
-4. [系统设计总览](design/architecture/system-overview.md)
-5. [实现层导航](implementation/README.md)
+3. [验收用例索引](requirements/acceptance/README.md)
+4. [能力需求总览](requirements/capabilities/overview.md)
+5. [系统设计总览](design/architecture/system-overview.md)
+6. [AI 原生开发范式](design/decisions/ai-native-development.md)
+7. [AI 原生开发清单](design/decisions/ai-native-development-checklist.md)
+8. [评测协议](design/evaluation/eval-protocol.md)
+9. [实现层导航](implementation/README.md)
 
 ## 入口
 
@@ -38,4 +42,5 @@
 
 - `requirements/` 只回答用户价值、对象、流程与验收标准。
 - `design/` 只回答系统边界、模块关系、接口与设计决策。
-- `implementation/` 才描述代码、脚本、环境变量、端口与运行现状。
+- `implementation/` 才描述代码、脚本、环境变量、端口、测试与运行现状。
+- 面向 AI 实现的验收场景优先定义在 `requirements/acceptance/`，而不是事后补到实现层。
