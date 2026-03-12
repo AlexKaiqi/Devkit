@@ -6,6 +6,7 @@ Implements the AgentBackend protocol so bot.py / server.py can swap
 in with zero interface changes.
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -228,26 +229,29 @@ class LocalAgent:
                 messages.append(assistant_msg)
 
                 for tc in sorted_calls:
-                    name = tc["name"]
-                    yield {"type": "tool", "name": name, "status": "running", "id": tc["id"]}
+                    yield {"type": "tool", "name": tc["name"], "status": "running", "id": tc["id"]}
 
+                async def _run_one(tc: dict) -> tuple[str, str, str, int]:
                     try:
                         args = json.loads(tc["arguments"]) if tc["arguments"] else {}
                     except json.JSONDecodeError:
                         args = {}
-
-                    log.info("Tool call: %s(%s)", name, json.dumps(args, ensure_ascii=False)[:200])
+                    log.info("Tool call: %s(%s)", tc["name"], json.dumps(args, ensure_ascii=False)[:200])
                     t0 = time.monotonic()
-                    result = await run_tool(name, args, session_key=session_key)
+                    result = await run_tool(tc["name"], args, session_key=session_key)
                     elapsed = round((time.monotonic() - t0) * 1000)
-                    log.info("Tool %s completed in %dms, result=%d chars", name, elapsed, len(result))
+                    log.info("Tool %s completed in %dms, result=%d chars", tc["name"], elapsed, len(result))
+                    return tc["id"], tc["name"], result, elapsed
 
+                results = await asyncio.gather(*[_run_one(tc) for tc in sorted_calls])
+
+                for tool_id, name, result, _ in results:
                     messages.append({
                         "role": "tool",
-                        "tool_call_id": tc["id"],
+                        "tool_call_id": tool_id,
                         "content": result,
                     })
-                    yield {"type": "tool", "name": name, "status": "done", "id": tc["id"]}
+                    yield {"type": "tool", "name": name, "status": "done", "id": tool_id}
 
         except Exception as e:
             log.error("Agent error: %s", e, exc_info=True)
