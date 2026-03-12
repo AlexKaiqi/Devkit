@@ -108,6 +108,12 @@ agent = LocalAgent()
 
 _session_keys: dict[str, str] = {}
 
+
+@app.on_event("startup")
+async def _startup():
+    """Try to init task graph on startup (non-blocking if Neo4j is not available)."""
+    await agent.init_task_graph()
+
 CODE_BLOCK_RE = re.compile(r"```(\w*)\n(.*?)```", re.DOTALL)
 
 
@@ -354,6 +360,141 @@ async def get_audit(date: str = ""):
         if line:
             entries.append(json.loads(line))
     return {"date": date, "count": len(entries), "entries": entries}
+
+
+# ── Task Graph API ──────────────────────────────────
+
+@app.get("/tasks")
+async def tasks_page():
+    """Serve the task graph visualization page."""
+    tasks_html = STATIC_DIR / "tasks.html"
+    if tasks_html.exists():
+        return HTMLResponse(tasks_html.read_text())
+    return HTMLResponse("<h1>tasks.html not found</h1>", status_code=404)
+
+
+@app.get("/api/tasks")
+async def list_tasks(session_id: str = ""):
+    """List root tasks for a session (or all sessions)."""
+    if not agent._task_orchestrator:
+        return JSONResponse({"error": "Task graph not available"}, status_code=503)
+    if session_id:
+        session_key = await _resolve_session(session_id)
+    else:
+        session_key = ""
+    if session_key:
+        root_tasks = await agent._task_graph_store.get_session_root_tasks(session_key)
+        return {"session_key": session_key, "tasks": [t.model_dump() for t in root_tasks]}
+    # List all root tasks across sessions
+    async with agent._task_graph_store._driver.session() as session:
+        result = await session.run(
+            "MATCH (t:Task) WHERE NOT (t)-[:SUBTASK_OF]->() RETURN t ORDER BY t.created_at DESC LIMIT 100"
+        )
+        records = await result.data()
+    from task_graph.models import TaskNode
+    tasks = [TaskNode.from_neo4j_record(dict(r["t"])) for r in records]
+    return {"tasks": [t.model_dump() for t in tasks]}
+
+
+@app.get("/api/tasks/{task_id}")
+async def get_task_detail(task_id: str):
+    """Get a single task's details."""
+    if not agent._task_orchestrator:
+        return JSONResponse({"error": "Task graph not available"}, status_code=503)
+    result = await agent._task_orchestrator.get_task_status(task_id=task_id)
+    if "error" in result:
+        return JSONResponse(result, status_code=404)
+    return result
+
+
+@app.get("/api/tasks/{task_id}/tree")
+async def get_task_tree(task_id: str):
+    """Get the full subtask tree under a task."""
+    if not agent._task_graph_store:
+        return JSONResponse({"error": "Task graph not available"}, status_code=503)
+    tree = await agent._task_graph_store.get_subtree(task_id)
+    if not tree:
+        return JSONResponse({"error": "Task not found"}, status_code=404)
+    return tree
+
+
+@app.put("/api/tasks/{task_id}")
+async def update_task_api(task_id: str, request: Request):
+    """Update a task (pause/cancel/priority)."""
+    if not agent._task_orchestrator:
+        return JSONResponse({"error": "Task graph not available"}, status_code=503)
+    body = await request.json()
+    task = await agent._task_orchestrator.update_task(
+        task_id=task_id,
+        state=body.get("state"),
+        priority=body.get("priority"),
+        next_action=body.get("next_action"),
+    )
+    return {"task_id": task.task_id, "state": task.state.value}
+
+
+@app.post("/api/tasks/{task_id}/subtasks")
+async def add_subtask_api(task_id: str, request: Request):
+    """Manually add a subtask."""
+    if not agent._task_orchestrator:
+        return JSONResponse({"error": "Task graph not available"}, status_code=503)
+    body = await request.json()
+    parent = await agent._task_graph_store.get_task(task_id)
+    if not parent:
+        return JSONResponse({"error": "Parent task not found"}, status_code=404)
+    child = await agent._task_orchestrator.create_task(
+        session_key=parent.session_key,
+        title=body.get("title", "New subtask"),
+        intent=body.get("intent", ""),
+        parent_task_id=task_id,
+    )
+    return {"task_id": child.task_id, "title": child.title, "state": child.state.value}
+
+
+@app.get("/api/tasks/events")
+async def task_events_sse(request: Request, session_id: str = ""):
+    """SSE endpoint for real-time task state changes."""
+    import asyncio
+
+    if not agent._task_orchestrator or not hasattr(agent, '_task_graph_store'):
+        return JSONResponse({"error": "Task graph not available"}, status_code=503)
+
+    async def event_generator():
+        # Poll-based SSE: check for changes every 2 seconds
+        last_states: dict[str, str] = {}
+        while True:
+            if await request.is_disconnected():
+                break
+            try:
+                # Get all non-terminal tasks
+                async with agent._task_graph_store._driver.session() as neo_session:
+                    result = await neo_session.run(
+                        "MATCH (t:Task) RETURN t.task_id AS id, t.state AS state, t.title AS title, t.updated_at AS updated"
+                    )
+                    records = await result.data()
+
+                current_states = {r["id"]: r["state"] for r in records}
+
+                # Find changes
+                for tid, state in current_states.items():
+                    if tid not in last_states or last_states[tid] != state:
+                        rec = next((r for r in records if r["id"] == tid), None)
+                        if rec:
+                            evt_data = json.dumps({
+                                "task_id": tid,
+                                "state": state,
+                                "title": rec.get("title", ""),
+                                "updated_at": rec.get("updated", 0),
+                            })
+                            yield f"data: {evt_data}\n\n"
+
+                last_states = current_states
+            except Exception:
+                pass
+
+            await asyncio.sleep(2)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 if __name__ == "__main__":

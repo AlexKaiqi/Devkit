@@ -12,3 +12,5 @@
 - [记忆层与知识层](memory-knowledge.md)
 - [runtime 与模型适配层](runtime-and-adapter.md)
 - [事件与通知](eventing-and-notification.md)
+- [任务图 Neo4j 选型](task-graph-neo4j.md)
+- [工具执行沙箱策略](tool-sandbox.md)

@@ -124,10 +124,11 @@ $JSON_MODE || echo ""
 
 $JSON_MODE || echo "=== 服务状态 ==="
 svc_searxng=$(check_docker_container searxng)
+svc_neo4j=$(check_docker_container devkit-neo4j)
 svc_stt=$(check_port "${STT_PROXY_PORT:-8787}" "豆包 STT 代理")
 svc_voice=$(check_port "${VOICE_CHAT_PORT:-3001}" "风铃")
 svc_timer=$(check_port "${TIMER_API_PORT:-8789}" "Timer API")
-json_kv "services" "{$(quote searxng):$(quote "$svc_searxng"),$(quote stt):$(quote "$svc_stt"),$(quote fengling):$(quote "$svc_voice"),$(quote timer_api):$(quote "$svc_timer")}"
+json_kv "services" "{$(quote searxng):$(quote "$svc_searxng"),$(quote neo4j):$(quote "$svc_neo4j"),$(quote stt):$(quote "$svc_stt"),$(quote fengling):$(quote "$svc_voice"),$(quote timer_api):$(quote "$svc_timer")}"
 $JSON_MODE || echo ""
 
 ready=true

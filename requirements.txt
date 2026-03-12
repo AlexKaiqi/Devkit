@@ -11,6 +11,10 @@ python-multipart
 websockets
 cryptography
 
+# ── 图数据库（任务图系统）────────────────────
+neo4j
+pydantic
+
 # ── Telegram Bot ──────────────────────────────
 python-telegram-bot
 

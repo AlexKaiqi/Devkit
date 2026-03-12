@@ -36,4 +36,9 @@ if command -v docker &>/dev/null && docker ps --format '{{.Names}}' 2>/dev/null 
   echo "  ✓ 已停止 SearXNG"
 fi
 
+if command -v docker &>/dev/null && docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^devkit-neo4j$'; then
+  docker compose -f "$REPO_ROOT/implementation/services/neo4j/docker-compose.yml" stop > /dev/null 2>&1
+  echo "  ✓ 已停止 Neo4j"
+fi
+
 echo "done"

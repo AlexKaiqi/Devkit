@@ -1,0 +1,51 @@
+{
+  "id": "task-graph-observation-001",
+  "title": "用户可通过 Web UI 实时看到任务图状态变化",
+  "capability": "task-graph",
+  "category": "core",
+  "channel": "fengling",
+  "scenario": "用户在 Web UI 中观测任务图，能实时看到节点状态随 agent 执行而变化，并能进行暂停/取消等干预操作。",
+  "input": {
+    "user_message": "（通过 Web UI 访问 /tasks 页面观测正在执行的任务图）",
+    "attachments": []
+  },
+  "context": {
+    "preconditions": [
+      "Neo4j 服务运行中",
+      "存在至少一个已分解的任务图",
+      "agent 正在执行子任务"
+    ]
+  },
+  "expected": {
+    "must": [
+      "Web UI 以 DAG 图形展示任务树",
+      "节点颜色编码反映任务状态",
+      "当前焦点节点有可视化标记",
+      "任务状态变更通过 SSE 实时推送到 UI",
+      "用户可通过 UI 暂停或取消任务",
+      "用户可通过 UI 手动添加子任务"
+    ],
+    "must_not": [
+      "UI 需要手动刷新才能看到状态变化",
+      "操作后任务图状态与 Neo4j 不一致"
+    ]
+  },
+  "evidence": {
+    "required": [
+      "screenshot",
+      "sse_event_log",
+      "api_response"
+    ]
+  },
+  "evaluation": {
+    "mode": "manual",
+    "deterministic_checks": [
+      "sse_events_received",
+      "state_consistency"
+    ],
+    "llm_judge": {
+      "rubric": "ui_usability_v1",
+      "min_score": 3
+    }
+  }
+}

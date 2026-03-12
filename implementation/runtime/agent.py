@@ -15,7 +15,7 @@ from typing import Any, AsyncGenerator, Protocol, runtime_checkable
 
 from openai import AsyncOpenAI
 
-from tools import TOOL_SCHEMAS, run_tool
+from tools import discover_tools, get_schemas, run_tool, set_context
 
 log = logging.getLogger("local-agent")
 
@@ -23,6 +23,15 @@ MAX_HISTORY = 40
 MAX_TOOL_ROUNDS = 15
 DEFAULT_REPO_ROOT = Path(os.environ.get("DEVKIT_DIR", str(Path(__file__).resolve().parents[2])))
 DEFAULT_WORKSPACE_DIR = "implementation/assets/persona"
+
+# Neo4j availability flag
+_NEO4J_AVAILABLE = False
+try:
+    from task_graph.graph_store import GraphStore
+    from task_graph.orchestrator import TaskOrchestrator
+    _NEO4J_AVAILABLE = True
+except ImportError:
+    pass
 
 
 @runtime_checkable
@@ -50,6 +59,7 @@ class LocalAgent:
         model: str = "",
         workspace_dir: str = "",
     ):
+        discover_tools()
         self.client = AsyncOpenAI(
             api_key=api_key or os.environ.get("LLM_API_KEY", ""),
             base_url=base_url or os.environ.get("LLM_BASE_URL", ""),
@@ -62,7 +72,34 @@ class LocalAgent:
             self._workspace = DEFAULT_REPO_ROOT / self._workspace
         self._system_prompt = self._load_system_prompt()
         self._sessions: dict[str, list[dict]] = {}
+
+        # Task graph (initialised lazily via init_task_graph)
+        self._task_graph_store: Any = None
+        self._task_orchestrator: Any = None
+
         log.info("LocalAgent ready: model=%s, workspace=%s", self.model, self._workspace)
+
+    async def init_task_graph(self, event_bus=None) -> bool:
+        """Try to connect to Neo4j and register task graph tools. Returns True on success."""
+        if not _NEO4J_AVAILABLE:
+            log.info("Task graph module not available (neo4j driver not installed)")
+            return False
+        try:
+            store = GraphStore()
+            await store.connect()
+            self._task_graph_store = store
+            self._task_orchestrator = TaskOrchestrator(store, event_bus=event_bus)
+
+            # Make orchestrator available to task graph tools via context
+            set_context("orchestrator", self._task_orchestrator)
+
+            # Recovery
+            recovered = await self._task_orchestrator.recover_on_startup()
+            log.info("Task graph ready, %d tasks recovered", recovered)
+            return True
+        except Exception as e:
+            log.warning("Task graph init failed (Neo4j may not be running): %s", e)
+            return False
 
     def _load_system_prompt(self) -> str:
         parts = []
@@ -122,12 +159,23 @@ class LocalAgent:
                     yield {"type": "error", "content": "Too many tool-calling rounds"}
                     break
 
-                api_messages = [{"role": "system", "content": self._system_prompt}] + messages
+                api_messages = [{"role": "system", "content": self._system_prompt}]
+
+                # Inject task graph context if available
+                if self._task_orchestrator:
+                    try:
+                        task_ctx = await self._task_orchestrator.build_context(session_key)
+                        if task_ctx and task_ctx.strip():
+                            api_messages.append({"role": "system", "content": task_ctx})
+                    except Exception as e:
+                        log.warning("Failed to build task context: %s", e)
+
+                api_messages.extend(messages)
 
                 response = await self.client.chat.completions.create(
                     model=self.model,
                     messages=api_messages,
-                    tools=TOOL_SCHEMAS if TOOL_SCHEMAS else None,
+                    tools=get_schemas() or None,
                     stream=True,
                 )
 
@@ -190,7 +238,7 @@ class LocalAgent:
 
                     log.info("Tool call: %s(%s)", name, json.dumps(args, ensure_ascii=False)[:200])
                     t0 = time.monotonic()
-                    result = await run_tool(name, args)
+                    result = await run_tool(name, args, session_key=session_key)
                     elapsed = round((time.monotonic() - t0) * 1000)
                     log.info("Tool %s completed in %dms, result=%d chars", name, elapsed, len(result))
 

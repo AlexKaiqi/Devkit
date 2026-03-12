@@ -1,0 +1,52 @@
+{
+  "id": "task-decomposition-001",
+  "title": "agent 收到复杂任务后分解为子任务图并逐步推进",
+  "capability": "task-graph",
+  "category": "core",
+  "channel": "fengling",
+  "scenario": "用户给出一个需要多步执行的复杂任务，agent 应自动调用 decompose_task 分解为子任务，并沿栈路径逐步推进。",
+  "input": {
+    "user_message": "帮我整理这个目录下的所有论文，按主题分类并生成摘要",
+    "attachments": []
+  },
+  "context": {
+    "preconditions": [
+      "Neo4j 服务运行中",
+      "task_graph 工具已注册到 agent",
+      "目标目录下有多个 PDF 文件"
+    ]
+  },
+  "expected": {
+    "must": [
+      "agent 调用 create_task 创建根任务",
+      "agent 调用 decompose_task 将根任务分解为多个子任务",
+      "每个子任务有明确的 title 和 intent",
+      "agent 逐个处理子任务并调用 complete_task 标记完成",
+      "所有子任务完成后，根任务自动传播为 completed 状态",
+      "每轮对话中 agent 可见从根到当前焦点的栈路径"
+    ],
+    "must_not": [
+      "agent 一次性执行所有步骤而不分解任务",
+      "任务状态丢失导致 agent 重复执行已完成的子任务"
+    ]
+  },
+  "evidence": {
+    "required": [
+      "assistant_response",
+      "task_graph_state",
+      "tool_call_sequence"
+    ]
+  },
+  "evaluation": {
+    "mode": "hybrid",
+    "deterministic_checks": [
+      "task_graph_has_root_and_subtasks",
+      "all_subtasks_completed",
+      "root_auto_completed"
+    ],
+    "llm_judge": {
+      "rubric": "task_decomposition_quality_v1",
+      "min_score": 4
+    }
+  }
+}

@@ -18,6 +18,8 @@ VOICE_PORT="${VOICE_CHAT_PORT:-3001}"
 TIMER_API_PORT="${TIMER_API_PORT:-8789}"
 SEARXNG_PORT=8080
 TUNNEL_LOG="/tmp/cloudflared.log"
+NEO4J_BOLT_PORT="${NEO4J_BOLT_PORT:-7687}"
+NEO4J_HTTP_PORT="${NEO4J_HTTP_PORT:-7474}"
 
 is_port_in_use() { lsof -i ":$1" &>/dev/null; }
 
@@ -51,6 +53,19 @@ else
   echo "  - Docker 未安装或未运行，跳过 SearXNG"
 fi
 
+if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+  if docker ps --format '{{.Names}}' | grep -q '^devkit-neo4j$'; then
+    echo "  ✓ Neo4j 已在运行 (:$NEO4J_BOLT_PORT)"
+  else
+    echo "  启动 Neo4j..."
+    docker compose -f "$REPO_ROOT/implementation/services/neo4j/docker-compose.yml" up -d > /dev/null 2>&1
+    sleep 5
+    docker ps --format '{{.Names}}' | grep -q '^devkit-neo4j$' && echo "  ✓ Neo4j (:$NEO4J_BOLT_PORT)" || echo "  ✗ Neo4j 启动失败"
+  fi
+else
+  echo "  - Docker 未安装或未运行，跳过 Neo4j"
+fi
+
 if is_port_in_use "$STT_PORT"; then
   echo "  ✓ 豆包 STT 代理已在运行 (:$STT_PORT)"
 else
@@ -72,6 +87,8 @@ else
   WORKSPACE_DIR="$WORKSPACE_DIR_VALUE" \
   DEVKIT_DIR="$REPO_ROOT" \
   VOICE_CHAT_PORT="$VOICE_PORT" \
+  NEO4J_URI="bolt://localhost:$NEO4J_BOLT_PORT" \
+  NEO4J_PASSWORD="${NEO4J_PASSWORD:-devkit2026}" \
   nohup "$PYTHON_BIN" "$REPO_ROOT/implementation/channels/fengling/server.py" > /tmp/voice-chat.log 2>&1 &
   wait_for_port "$VOICE_PORT" "风铃" 10
 fi
@@ -133,6 +150,7 @@ echo ""
 echo "=== 所有服务已启动 ==="
 echo ""
 echo "  SearXNG:   http://localhost:$SEARXNG_PORT"
+echo "  Neo4j:     http://localhost:$NEO4J_HTTP_PORT (bolt://localhost:$NEO4J_BOLT_PORT)"
 echo "  豆包 STT:  http://localhost:$STT_PORT/health"
 echo "  🎐 风铃:   http://localhost:$VOICE_PORT"
 echo "  Timer API: http://localhost:$TIMER_API_PORT/health"
