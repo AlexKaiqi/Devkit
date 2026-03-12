@@ -1,6 +1,6 @@
 # 当前状态
 
-> 最后更新：2026-03-09
+> 最后更新：2026-03-12
 
 ## 当前状态
 
@@ -14,6 +14,31 @@
 
 ## 最近完成
 
+- [2026-03-12] 工具执行沙箱 P0 落地（`design/decisions/tool-sandbox.md`）：
+  - 新增 `runtime/tools/sandbox.py`：路径分区（安全区/受控区/禁区）+ 命令过滤（黑名单/警告）+ `check_permission()` 统一拦截
+  - `tools/__init__.py` 的 `run_tool()` 增加沙箱前置检查
+  - `exec.py`、`write_file.py` schema 增加 `confirmed` 可选参数支持阻塞式确认
+  - 46 条单元测试全部通过（路径分类、命令过滤、读写权限、disabled 模式）
+- [2026-03-12] 风铃主界面 markdown 渲染 + mermaid 支持：
+  - AI 消息全面 markdown 渲染（marked.js 本地化，不依赖 CDN）
+  - 流式阶段 500ms debounce 预览 markdown，完成后最终渲染 + 代码块复制按钮
+  - Mermaid 图表按需加载（检测到 mermaid 代码块时才动态加载）
+  - 暗色主题完整 markdown 样式（标题、列表、表格、代码、引用、链接等）
+  - 设计决策更新：明确"对话即界面"原则，`/tasks` 等页面仅作开发调试入口
+- [2026-03-12] 任务图 Web UI 重构：从 Cytoscape.js DAG 图切换为可折叠目录树视图
+  - 移除 Cytoscape/dagre/cytoscape-dagre 三个 CDN 依赖
+  - 纯 DOM 递归渲染树形结构，状态图标 + badge + 进度计数 + 焦点标记
+  - 展开/折叠子树 + inline 详情面板（intent, next_action, result_summary, error_summary）
+  - 默认展开规则：running/queued 自动展开，终态折叠，焦点及祖先强制展开
+  - SSE 实时增量更新（已有节点 DOM 原地更新，新节点全量重载）
+  - 视觉风格对齐风铃主界面暗色主题（CSS variables）
+- [2026-03-12] 任务图（Task Graph）系统完整实现：
+  - 需求层：`requirements/core/task-graph.md` 能力规格 + 2 个验收场景
+  - 设计层：`design/decisions/task-graph-neo4j.md` Neo4j 选型 + `design/architecture/task-graph.md` 架构设计
+  - 实现层 Phase 1：`implementation/runtime/task_graph/` 核心图引擎（models, graph_store, stack, orchestrator, tools, events），Neo4j Docker 容器配置，agent.py 集成（Context 注入 + 工具注册）
+  - 实现层 Phase 2：Fengling REST API（6 个端点 + SSE 实时推送），Web UI（tasks.html/js/css）
+  - 实现层 Phase 3：CLI 入口（list/tree/show/focus/cancel），启动恢复机制
+  - 实现层 Phase 4：单元测试 + 集成测试，ops 脚本更新（start/stop/check），requirements.txt 更新
 - [2026-03-09] 收敛渠道优先级：明确风铃是主客户端，Telegram 只作为可选外部集成 / 通知工具；同步更新 README、产品目标、架构决策、acceptance、tool choices 与 agent 上下文。
 - [2026-03-09] 清理实现层测试表述：把 `implementation/tests/` 中残留的“主入口 / Web client”文案改成更中性的 channel/service 表达，避免把当前 transport 细节误写成产品层渠道定位。
 - [2026-03-09] 纠正渠道定位理解：不再把风铃写成桌面主入口，而是定义为与 Telegram 并列的移动端用户渠道；同步更新 README、requirements、design、persona 指令与项目上下文文档。
@@ -39,8 +64,7 @@
 ## 进行中
 
 - SearXNG 网络修复（容器内 HTTPS 出站仍不稳定）
-- 任务状态持久化与续作落地
-- 委托边界的运行时强制检查
+- 工具沙箱 P1：Git auto-stash 兜底
 - 记忆层与知识层的维护闭环
 
 ## 当前目录约定
@@ -50,8 +74,9 @@
 | `requirements/` | 产品与能力需求 |
 | `design/` | 目标态架构、接口与决策 |
 | `implementation/runtime/` | 共享 runtime 核心 |
+| `implementation/runtime/task_graph/` | 任务图系统（Neo4j DAG） |
 | `implementation/channels/` | 风铃与 Telegram 渠道实现 |
-| `implementation/services/` | 语音、搜索等支撑服务 |
+| `implementation/services/` | 语音、搜索、Neo4j 等支撑服务 |
 | `implementation/assets/persona/` | persona 与长期运行指令 |
 | `implementation/data/` | 审计与结构化本地数据 |
 | `implementation/ops/` | 启停、诊断、部署、辅助脚本 |
@@ -61,4 +86,3 @@
 ## 待确认
 
 - 知识层的独立系统将以什么形式与 runtime 对接
-- 任务状态是否在当前仓库内持久化，还是交由独立任务存储承载
