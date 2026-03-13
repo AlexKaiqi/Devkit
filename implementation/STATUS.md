@@ -1,6 +1,6 @@
 # 当前状态
 
-> 最后更新：2026-03-12
+> 最后更新：2026-03-13
 
 ## 当前状态
 
@@ -13,6 +13,66 @@
 风铃被定义为自有移动端主客户端；Telegram 如果保留，默认只作为可选外部通知或轻量集成工具；两者共享同一个本地 runtime。
 
 ## 最近完成
+
+- [2026-03-13] 新增 coding skill（code_agent）：
+  - 进程内子代理，复用同一 LLM 客户端和工具注册表，独立 session + 精简 system prompt
+  - 只开放 system skill 工具（exec/read_file/write_file/list_files/search/fetch_url）
+  - 弃用 claude-internal subprocess 方案（非 TTY 卡住、嵌套检测、外部认证依赖）
+  - 关键词：写代码、实现、debug、修复、重构、代码 review 等
+
+
+  - **删除** `kal.py`（khal 封装），日程统一使用 `schedule` 工具
+  - **重写** `contacts.py`：从 khard CLI 改为直接读写 `implementation/data/contacts.yml`，新增 add/update action，生日查询改为本地计算
+  - personal skill 现在完全本地化，无任何外部 CLI 依赖
+
+
+  - `note` 追加到当日日志 `memory/YYYY-MM-DD.md`，带时间戳和可选分类
+  - `remember` 追加到 `MEMORY.md` 长期记忆，支持指定章节
+  - `recall` 全文搜索 MEMORY.md + 最近 30 天日志，AND 关键词匹配
+  - 关键词覆盖：记住/记一下/备忘/笔记/别忘了/之前说过 等
+
+
+  - **重构** `tools/__init__.py`：新增 `SkillDef` 数据结构、`discover_skills()`、`get_active_skills()`、`get_skill_context()`；`get_schemas(message)` 支持按关键词懒加载，兼容旧调用（`message=""`全量返回）
+  - **新建** `tools/skills/` 目录，4 个 Skill 包：`system`（始终激活）、`personal`、`notification`、`task`，每包含 `SKILL.md`（YAML frontmatter + 操作规范）
+  - **迁移** 所有工具文件（19个）到对应 Skill 子目录，工具内 `from tools import tool` 导入路径无需改动
+  - **微改** `agent.py`：每轮 `get_schemas(_user_message)` 按需激活，同时通过 `get_skill_context()` 将激活 Skill 的规范注入 system prompt
+  - **更新** `TOOLS.md`：按 Skill 分组重新描述
+  - **已验证**：98 单元测试全部通过；全量 11 工具、任务关键词 6 工具（task 需 orchestrator）、日程关键词 9 工具
+
+- [2026-03-13] Web Push 调试修复 + 对话流同步：
+  - **修复** VAPID 私钥格式：PKCS8 PEM → raw 32字节 base64url，重新生成密钥
+  - **修复** SW 版本缓存导致 postMessage 不触发：改为服务器端 SSE 广播（`/api/notify-stream`），彻底不依赖 SW 版本
+  - **修复** `calendar.py` 文件名遮蔽标准库，rename → `kal.py`；`schedule.py` 同理 → `my_schedule.py`
+  - **新增** `schedule` 工具（本地 JSON 日程存储，不依赖系统日历）+ `remind` 支持绝对时间
+  - **新增** `agent.py` 每轮注入当前时间（CST），解决"周六几点"类请求 Too many tool rounds 问题
+  - **新增** SOUL.md 日程行为规范：提醒类请求同时调 schedule add + remind
+  - **已验证**：系统通知弹窗 + 对话气泡双渠道同步，Chrome 后台可收到，Edge/WNS 不兼容
+
+
+  - **新增** `implementation/ops/scripts/gen_vapid.py`：VAPID 密钥生成（EC P-256 raw base64url 格式，pywebpush 兼容）
+  - **新增** `implementation/channels/fengling/push_sender.py`：订阅持久化 + 并发推送 + 自动清理过期订阅
+  - **新增** `implementation/channels/fengling/static/sw.js`：Service Worker
+  - **新增** `implementation/channels/fengling/static/manifest.json`：PWA manifest
+  - **修改** `server.py`：`/sw.js`、`/manifest.json` 路由 + `/api/push/*` 四个端点
+  - **修改** `index.html`：🔕/🔔 订阅按钮 + iOS A2HS 提示 + push JS
+  - **修改** `notify.py`：并发双渠道（Telegram + Web Push）
+  - **修改** `bot.py`：定时器触发后 fire-and-forget Web Push
+  - **修复** VAPID 密钥格式错误：原存 PKCS8 PEM，pywebpush 需要 raw 32字节 base64url，重新生成后推送正常
+  - **已知限制**：Edge on Windows 使用 WNS，与 pywebpush VAPID 不兼容，需用 Chrome 订阅
+
+
+  - **修复**：`conftest.py` 补充仓库根目录到 `sys.path`，单元测试从 93+1错误 → 98 全部通过
+  - **修复**：`agent.py` 在 system prompt 最前面注入 `_IDENTITY_LOCK`，强制覆盖 Gemini/GPT 等底层模型的内置自我认知，确保 persona 始终表现为"希露菲"
+  - **修复**：`SOUL.md` 安全章节补充"禁止透露底层 LLM 名称"约束
+  - **新增 6 个工具**（`implementation/runtime/tools/`）：
+    - `fetch_url` — 抓取 URL 内容，HTML 自动转纯文本
+    - `list_files` — 目录浏览，支持递归
+    - `calendar` — 读写日历（via khal）
+    - `contacts` — 查询通讯录（via khard）
+    - `remind` — 延时提醒（包装 Timer API，支持 '5m'/'2h'/'1d' 等人性化格式）
+    - `notify` — 即时推送通知（包装 notify.sh，支持 urgent 静默时段绕过）
+  - **更新** `TOOLS.md`：10 个工具的完整说明
+  - 工具总数：5 → 10（含 task graph 工具注入后为 17）
 
 - [2026-03-12] 工具执行沙箱 P0 落地（`design/decisions/tool-sandbox.md`）：
   - 新增 `runtime/tools/sandbox.py`：路径分区（安全区/受控区/禁区）+ 命令过滤（黑名单/警告）+ `check_permission()` 统一拦截

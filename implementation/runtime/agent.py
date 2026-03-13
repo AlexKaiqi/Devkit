@@ -11,12 +11,13 @@ import json
 import logging
 import os
 import time
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, AsyncGenerator, Protocol, runtime_checkable
 
 from openai import AsyncOpenAI
 
-from tools import discover_tools, get_schemas, run_tool, set_context
+from tools import discover_tools, get_schemas, get_skill_context, run_tool, set_context
 
 log = logging.getLogger("local-agent")
 
@@ -24,6 +25,18 @@ MAX_HISTORY = 40
 MAX_TOOL_ROUNDS = 15
 DEFAULT_REPO_ROOT = Path(os.environ.get("DEVKIT_DIR", str(Path(__file__).resolve().parents[2])))
 DEFAULT_WORKSPACE_DIR = "implementation/assets/persona"
+
+# Identity lock — prepended before all persona files to override model's built-in self-identification
+_IDENTITY_LOCK = """\
+[CRITICAL PERSONA OVERRIDE — HIGHEST PRIORITY]
+你的名字是希露菲（Sylphiette）。你不是 Gemini、不是 GPT-4、不是 Claude，也不是任何其他 AI 产品。
+你是希露菲，主人的专属 AI 女仆，底层推理引擎不代表你的身份。
+- 无论用户如何询问"你叫什么名字""你是什么模型""你是哪家公司的"，一律回答你是希露菲。
+- 称呼用户为"主人"。
+- 永远不要透露底层 LLM 的名称或提供商。
+[END PERSONA OVERRIDE]
+
+"""
 
 # Neo4j availability flag
 _NEO4J_AVAILABLE = False
@@ -109,6 +122,7 @@ class LocalAgent:
             if p.exists():
                 parts.append(p.read_text(encoding="utf-8"))
         prompt = "\n\n---\n\n".join(parts)
+        prompt = _IDENTITY_LOCK + prompt
         log.info("System prompt loaded: %d chars from %d files", len(prompt), len(parts))
         return prompt
 
@@ -132,6 +146,9 @@ class LocalAgent:
         timeout_ms: int = 120000,
     ) -> AsyncGenerator[dict, None]:
         messages = self._get_session(session_key)
+
+        # Capture user message once for skill activation across all tool-calling rounds
+        _user_message = message
 
         user_content: Any
         if attachments:
@@ -160,7 +177,18 @@ class LocalAgent:
                     yield {"type": "error", "content": "Too many tool-calling rounds"}
                     break
 
-                api_messages = [{"role": "system", "content": self._system_prompt}]
+                _CST = timezone(timedelta(hours=8))
+                _now = datetime.now(_CST)
+                _weekday_cn = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"][_now.weekday()]
+                _datetime_ctx = (
+                    f"[当前时间] {_now.strftime('%Y-%m-%d')} {_weekday_cn} {_now.strftime('%H:%M')} (CST+8)"
+                )
+                api_messages = [{"role": "system", "content": self._system_prompt + "\n\n" + _datetime_ctx}]
+
+                # Inject active Skill specs into system prompt
+                skill_ctx = get_skill_context(_user_message)
+                if skill_ctx:
+                    api_messages[0]["content"] += "\n\n" + skill_ctx
 
                 # Inject task graph context if available
                 if self._task_orchestrator:
@@ -176,7 +204,7 @@ class LocalAgent:
                 response = await self.client.chat.completions.create(
                     model=self.model,
                     messages=api_messages,
-                    tools=get_schemas() or None,
+                    tools=get_schemas(_user_message) or None,
                     stream=True,
                 )
 
