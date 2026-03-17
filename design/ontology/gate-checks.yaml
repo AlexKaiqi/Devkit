@@ -1,0 +1,83 @@
+gate_checks:
+  acceptance_case_exists:
+    type: deterministic
+    fs_check: "requirements/acceptance/**/*{feature_slug}*.json"
+    template: "design/ontology/templates/acceptance-case.template.json"
+    description: "扫描 requirements/acceptance/ 目录是否有匹配 feature_slug 的 JSON 文件"
+
+  acceptance_case_updated:
+    type: deterministic
+    fs_check: "requirements/acceptance/**/*{feature_slug}*.json"
+    template: "design/ontology/templates/acceptance-case.template.json"
+    description: "扫描 requirements/acceptance/ 目录是否有匹配 feature_slug 的 JSON 文件（语义为更新验证）"
+
+  design_decision_exists:
+    type: deterministic
+    fs_check:
+      - "design/decisions/*{feature_slug}*.md"
+      - "design/architecture/*{feature_slug}*.md"
+    template: "design/ontology/templates/design-decision.template.md"
+    description: "扫描 design/decisions/ 或 design/architecture/ 是否有匹配 feature_slug 的 MD 文件"
+
+  existing_tests_pass:
+    type: runtime
+    command: ".venv/bin/pytest implementation/tests/unit/ -q --tb=no"
+    pass_condition: "exit_code == 0"
+    description: "运行单元测试，确认全部通过（exit_code == 0）"
+
+  regression_case_created:
+    type: deterministic
+    fs_check: "requirements/acceptance/regressions/*{feature_slug}*.json"
+    template: "design/ontology/templates/regression-case.template.json"
+    description: "扫描 requirements/acceptance/regressions/ 是否有匹配 feature_slug 的 JSON 文件"
+
+  rubric_defined:
+    type: deterministic
+    fs_check:
+      - "design/evaluation/*{feature_slug}*.md"
+      - "design/evaluation/*{feature_slug}*.yaml"
+    description: "扫描 design/evaluation/ 是否有匹配 feature_slug 的 MD 或 YAML 文件"
+
+  # ── checklist 类型 ────────────────────────────────────────────
+  dod_checklist_complete:
+    type: checklist
+    checklist_path: "requirements/methodology/{feature_id}/dod-checklist.json"
+    required_categories:
+      - context_validation
+      - implementation_completeness
+      - test_coverage
+      - documentation_tracking
+      - status_verification
+    template: "design/ontology/templates/dod-checklist.template.json"
+    description: "检查 DoD 完成清单：所有 required 分类的条目均 completed=true"
+
+  change_points_analyzed:
+    type: deterministic
+    fs_check: "requirements/methodology/{feature_slug}/change-points.json"
+    template: "design/ontology/templates/change-points.template.json"
+    description: "确认 change-points.json 存在——列出了所有受影响的代码单元"
+
+  story_list_exists:
+    type: deterministic
+    fs_check: "requirements/methodology/{feature_slug}/stories.json"
+    description: "complex 功能需要完成 story 分解，stories.json 须存在"
+
+  adversarial_review_completed:
+    type: deterministic
+    fs_check: "requirements/methodology/{feature_slug}/adversarial-review.json"
+    description: "复杂度 complex 的功能需要对抗性审查记录"
+
+  # ── cross_artifact 类型 ────────────────────────────────────────
+  design_references_acceptance:
+    type: cross_artifact
+    source_glob: "design/decisions/*{feature_slug}*.md"
+    target_pattern: "{feature_slug}"
+    description: "设计决策文件中必须引用对应的 feature_slug，确保与需求对齐"
+
+  # ── coverage 类型 ─────────────────────────────────────────────
+  test_coverage_adequate:
+    type: coverage
+    command: ".venv/bin/pytest implementation/tests/unit/ --cov=implementation/runtime --cov-report=json --cov-report=term-missing -q --tb=no"
+    coverage_report: "coverage.json"
+    min_coverage: 70
+    description: "单元测试行覆盖率须 ≥ 70%"

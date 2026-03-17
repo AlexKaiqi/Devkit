@@ -1,0 +1,17 @@
+{
+  "feature_id": "{feature_id}",
+  "change_type": "{change_type}",
+  "change_points": [
+    {
+      "file_path": "implementation/runtime/...",
+      "scope": "function|class|module",
+      "reason": "（为什么需要修改）",
+      "test_file": "implementation/tests/unit/test_xxx.py",
+      "is_independent": true,
+      "_comment_new_capability": "new_capability 必填: file_path, scope, reason, test_file, is_independent",
+      "_comment_behavior_change": "behavior_change 必填: file_path, scope, reason, existing_tests",
+      "_comment_bug_fix": "bug_fix 必填: file_path, scope, root_cause",
+      "_comment_refactoring": "refactoring 必填: file_path, scope, refactor_type"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "feature_id": "{feature_id}",
+  "context_validation": [
+    { "item": "验收场景已创建并覆盖核心路径", "completed": false },
+    { "item": "设计决策已记录", "completed": false }
+  ],
+  "implementation_completeness": [
+    { "item": "所有变更点已实现", "completed": false },
+    { "item": "代码符合项目约定", "completed": false }
+  ],
+  "test_coverage": [
+    { "item": "单元测试覆盖所有变更点", "completed": false },
+    { "item": "测试全部通过", "completed": false }
+  ],
+  "documentation_tracking": [
+    { "item": "相关文档已更新", "completed": false }
+  ],
+  "status_verification": [
+    { "item": "STATUS.md 已更新", "completed": false }
+  ]
+}

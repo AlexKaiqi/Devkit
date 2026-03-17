@@ -1,0 +1,17 @@
+{
+  "id": "{feature_slug}-reg-001",
+  "title": "（bug 描述 → 回归守卫）",
+  "root_cause": "（根因简述）",
+  "scenarios": [
+    {
+      "id": "r1",
+      "name": "（复现场景）",
+      "given": "（触发条件）",
+      "when": "（操作）",
+      "then": [
+        "（修复后的期望行为）"
+      ]
+    }
+  ],
+  "regression_test": "implementation/tests/unit/test_{feature_slug}_regression.py"
+}
