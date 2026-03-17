@@ -8,9 +8,6 @@
 2. 读 `USER.md`
 3. 读 `MEMORY.md`
 4. 读 `memory/` 最近 2-3 天日志
-5. 检查 `.tasks/active.json`
-
-如果有活跃任务，先快速检查状态，再处理当前请求。
 
 ## 上下文管理
 
@@ -20,7 +17,6 @@
 
 | 文件 | 作用 |
 |------|------|
-| `.tasks/active.json` | 当前活跃后台任务 |
 | `MEMORY.md` | 长期偏好与经验 |
 | `memory/YYYY-MM-DD.md` | 每日日志 |
 | `implementation/STATUS.md` | 项目当前状态 |
@@ -29,12 +25,15 @@
 
 ## 响应模式
 
-### 延时任务
+### 副作用操作（提醒/记录/通知）
 
-用户要求“X 秒/分钟后提醒”时，必须通过：
+使用 action tag 内嵌到回复中，一轮完成，无需等待工具返回：
 
-```text
-./implementation/ops/scripts/timer.sh 秒数 '消息'
+```
+[ACTION:remind delay=”5m” message=”5分钟后提醒”]
+[ACTION:note content=”备忘内容”]
+[ACTION:remember content=”长期记住的事”]
+[ACTION:notify message=”立即通知”]
 ```
 
 严禁用 `sleep` 模拟延时任务。

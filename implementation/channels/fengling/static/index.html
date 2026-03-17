@@ -4,27 +4,35 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>风铃 · 希露菲</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#35a5d8">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <script src="/static/marked.min.js"></script>
 <style>
   :root {
-    --bg: #0f1117;
-    --surface: #1a1d27;
-    --surface-2: #242836;
-    --text: #e4e6ed;
-    --text-dim: #8b8fa3;
-    --accent: #6c63ff;
-    --accent-glow: rgba(108, 99, 255, 0.3);
-    --user-bubble: #2d3148;
-    --ai-bubble: #1e2235;
-    --recording: #ff4757;
-    --recording-glow: rgba(255, 71, 87, 0.4);
+    --bg: #eef6fb;
+    --surface: rgba(255, 255, 255, 0.75);
+    --surface-2: rgba(255, 255, 255, 0.55);
+    --text: #1e3040;
+    --text-dim: #6b8fa8;
+    --accent: #35a5d8;
+    --accent-2: #4cc9a0;
+    --accent-glow: rgba(53, 165, 216, 0.25);
+    --user-bubble: #d6eef9;
+    --user-text: #1a3a52;
+    --ai-bubble: rgba(255, 255, 255, 0.88);
+    --recording: #f06080;
+    --recording-glow: rgba(240, 96, 128, 0.35);
+    --border: rgba(53, 165, 216, 0.18);
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-    background: var(--bg);
+    background: linear-gradient(160deg, #d6eef9 0%, #e8f5f0 50%, #eef6fb 100%);
+    background-attachment: fixed;
     color: var(--text);
     height: 100dvh;
     display: flex;
@@ -39,16 +47,21 @@
 
   header {
     position: relative;
-    padding: 16px 20px;
+    padding: 14px 20px;
     text-align: center;
-    border-bottom: 1px solid var(--surface-2);
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
     flex-shrink: 0;
+    box-shadow: 0 1px 12px rgba(53, 165, 216, 0.08);
   }
 
   header h1 {
     font-size: 18px;
     font-weight: 600;
     color: var(--text);
+    letter-spacing: 0.02em;
   }
 
   header h1 span { color: var(--accent); }
@@ -72,9 +85,9 @@
   .msg {
     max-width: 80%;
     padding: 10px 14px;
-    border-radius: 16px;
+    border-radius: 18px;
     font-size: 15px;
-    line-height: 1.5;
+    line-height: 1.55;
     animation: fadeIn 0.25s ease;
   }
 
@@ -85,15 +98,20 @@
 
   .msg.user {
     align-self: flex-end;
-    background: var(--user-bubble);
+    background: linear-gradient(135deg, #5bb8e8, #35a5d8);
+    color: #fff;
     border-bottom-right-radius: 4px;
+    box-shadow: 0 2px 12px rgba(53, 165, 216, 0.28);
   }
 
   .msg.ai {
     align-self: flex-start;
     background: var(--ai-bubble);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border-bottom-left-radius: 4px;
-    border-left: 2px solid var(--accent);
+    border-left: 2.5px solid var(--accent-2);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
   }
 
   .msg.ai .typing {
@@ -112,14 +130,13 @@
     animation: blink 0.8s step-end infinite;
     color: var(--accent);
   }
-
   @keyframes blink {
     50% { opacity: 0; }
   }
 
   .msg .attachment {
     margin-top: 8px;
-    background: var(--bg);
+    background: rgba(238, 246, 251, 0.85);
     border-radius: 8px;
     padding: 10px 12px;
     font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
@@ -128,7 +145,7 @@
     white-space: pre-wrap;
     word-break: break-all;
     overflow-x: auto;
-    border: 1px solid var(--surface-2);
+    border: 1px solid var(--border);
     position: relative;
   }
 
@@ -170,13 +187,27 @@
     padding: 4px 8px;
   }
 
+  .msg.notify {
+    align-self: flex-start;
+    background: rgba(255, 243, 205, 0.88);
+    border-left: 2.5px solid #f4c430;
+    border-radius: 12px 12px 12px 4px;
+    box-shadow: 0 2px 10px rgba(244, 196, 48, 0.18);
+    color: var(--text);
+    font-size: 14px;
+    max-width: 72%;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
   .tool-indicator {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     padding: 4px 10px;
     border-radius: 12px;
-    background: var(--surface-2);
+    background: rgba(53, 165, 216, 0.10);
+    border: 1px solid rgba(53, 165, 216, 0.2);
     font-size: 12px;
     color: var(--accent);
     margin: 4px 0;
@@ -193,13 +224,15 @@
 
   #controls {
     flex-shrink: 0;
-    padding: 20px;
+    padding: 16px 20px 20px;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 12px;
-    border-top: 1px solid var(--surface-2);
-    background: var(--surface);
+    border-top: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
   }
 
   #status {
@@ -217,7 +250,7 @@
     height: 80px;
     border-radius: 50%;
     border: none;
-    background: var(--accent);
+    background: linear-gradient(135deg, #5bb8e8, #35a5d8);
     color: white;
     font-size: 32px;
     cursor: pointer;
@@ -231,7 +264,7 @@
   }
 
   #mic-btn:active, #mic-btn.recording {
-    background: var(--recording);
+    background: linear-gradient(135deg, #f07898, var(--recording));
     box-shadow: 0 4px 30px var(--recording-glow);
     transform: scale(1.1);
   }
@@ -251,7 +284,7 @@
   }
 
   #mic-btn:disabled {
-    background: var(--surface-2);
+    background: #c8dde8;
     box-shadow: none;
     cursor: not-allowed;
     transform: none;
@@ -282,26 +315,27 @@
   .header-actions.right { right: 16px; }
 
   .header-btn {
-    background: none;
-    border: 1px solid var(--surface-2);
+    background: rgba(255,255,255,0.7);
+    border: 1px solid var(--border);
     color: var(--text-dim);
     border-radius: 8px;
     padding: 4px 10px;
     font-size: 12px;
     cursor: pointer;
     transition: all 0.15s;
+    backdrop-filter: blur(8px);
   }
 
-  .header-btn:hover { color: var(--text); border-color: var(--accent); }
+  .header-btn:hover { color: var(--accent); border-color: var(--accent); background: rgba(255,255,255,0.9); }
 
   .voice-select {
     position: static;
   }
 
   .voice-select select {
-    background: var(--surface-2);
+    background: rgba(255,255,255,0.7);
     color: var(--text-dim);
-    border: 1px solid var(--surface-2);
+    border: 1px solid var(--border);
     border-radius: 8px;
     padding: 4px 8px;
     font-size: 12px;
@@ -321,8 +355,9 @@
     padding: 8px 20px 0;
     gap: 8px;
     flex-wrap: wrap;
-    background: var(--surface);
-    border-top: 1px solid var(--surface-2);
+    background: rgba(255,255,255,0.72);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--border);
     align-items: center;
   }
 
@@ -333,7 +368,7 @@
     width: 56px; height: 56px;
     border-radius: 8px;
     overflow: hidden;
-    border: 1px solid var(--surface-2);
+    border: 1px solid var(--border);
   }
 
   .preview-thumb img {
@@ -367,7 +402,8 @@
     width: 44px; height: 44px;
     border-radius: 50%;
     border: none;
-    background: var(--surface-2);
+    background: rgba(255,255,255,0.7);
+    border: 1px solid var(--border);
     color: var(--text-dim);
     font-size: 20px;
     cursor: pointer;
@@ -377,8 +413,8 @@
     transition: all 0.15s;
   }
 
-  .side-btn:hover { background: var(--accent); color: #fff; }
-  .side-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .side-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .side-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
   #text-row {
     display: flex;
@@ -390,18 +426,21 @@
 
   #text-input {
     flex: 1;
-    background: var(--bg);
-    border: 1px solid var(--surface-2);
-    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.85);
+    border: 1.5px solid var(--border);
+    border-radius: 22px;
     padding: 10px 16px;
     color: var(--text);
     font-size: 15px;
     outline: none;
     font-family: inherit;
-    transition: border-color 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s;
   }
 
-  #text-input:focus { border-color: var(--accent); }
+  #text-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(53, 165, 216, 0.12);
+  }
 
   #text-input::placeholder { color: var(--text-dim); }
 
@@ -409,7 +448,7 @@
     width: 40px; height: 40px;
     border-radius: 50%;
     border: none;
-    background: var(--accent);
+    background: linear-gradient(135deg, #5bb8e8, #35a5d8);
     color: #fff;
     font-size: 18px;
     cursor: pointer;
@@ -418,10 +457,11 @@
     justify-content: center;
     flex-shrink: 0;
     transition: all 0.15s;
+    box-shadow: 0 2px 8px var(--accent-glow);
   }
 
-  #text-send-btn:hover { transform: scale(1.08); }
-  #text-send-btn:disabled { background: var(--surface-2); cursor: not-allowed; transform: none; }
+  #text-send-btn:hover { transform: scale(1.08); box-shadow: 0 4px 16px var(--accent-glow); }
+  #text-send-btn:disabled { background: #c8dde8; box-shadow: none; cursor: not-allowed; transform: none; }
 
   #stop-btn {
     display: none;
@@ -429,7 +469,7 @@
     height: 80px;
     border-radius: 50%;
     border: none;
-    background: var(--recording);
+    background: linear-gradient(135deg, #f07898, var(--recording));
     color: white;
     font-size: 28px;
     cursor: pointer;
@@ -494,7 +534,6 @@
     margin: 12px 0 6px;
     color: var(--text);
   }
-
   .msg.ai .markdown-body h1 { font-size: 18px; }
   .msg.ai .markdown-body h2 { font-size: 16px; }
   .msg.ai .markdown-body h3 { font-size: 15px; }
@@ -512,18 +551,18 @@
     font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
     font-size: 13px;
     padding: 1px 5px;
-    background: var(--bg);
-    border: 1px solid var(--surface-2);
+    background: rgba(53, 165, 216, 0.08);
+    border: 1px solid rgba(53, 165, 216, 0.2);
     border-radius: 3px;
-    color: var(--accent);
+    color: #1a7aaa;
   }
 
   .msg.ai .markdown-body pre {
     position: relative;
     margin: 8px 0;
     padding: 10px 12px;
-    background: var(--bg);
-    border: 1px solid var(--surface-2);
+    background: #f0f7fb;
+    border: 1px solid var(--border);
     border-radius: 8px;
     overflow-x: auto;
   }
@@ -543,8 +582,8 @@
     right: 8px;
     font-size: 11px;
     color: var(--text-dim);
-    background: var(--surface-2);
-    border: 1px solid var(--surface-2);
+    background: rgba(255,255,255,0.8);
+    border: 1px solid var(--border);
     border-radius: 4px;
     padding: 2px 8px;
     cursor: pointer;
@@ -558,7 +597,7 @@
   }
 
   .msg.ai .markdown-body pre .code-copy-btn:hover {
-    color: var(--text);
+    color: var(--accent);
     border-color: var(--accent);
   }
 
@@ -576,8 +615,8 @@
   .msg.ai .markdown-body blockquote {
     margin: 6px 0;
     padding: 4px 12px;
-    border-left: 3px solid var(--accent);
-    background: rgba(108, 99, 255, 0.06);
+    border-left: 3px solid var(--accent-2);
+    background: rgba(76, 201, 160, 0.08);
     color: var(--text-dim);
   }
 
@@ -600,18 +639,18 @@
   .msg.ai .markdown-body th,
   .msg.ai .markdown-body td {
     padding: 5px 10px;
-    border: 1px solid var(--surface-2);
+    border: 1px solid var(--border);
     text-align: left;
   }
 
   .msg.ai .markdown-body th {
-    background: var(--surface-2);
+    background: rgba(53, 165, 216, 0.08);
     font-weight: 600;
   }
 
   .msg.ai .markdown-body hr {
     border: none;
-    border-top: 1px solid var(--surface-2);
+    border-top: 1px solid var(--border);
     margin: 10px 0;
   }
 
@@ -624,7 +663,8 @@
   .msg.ai .markdown-body .mermaid-container {
     margin: 8px 0;
     padding: 12px;
-    background: var(--surface);
+    background: rgba(255,255,255,0.8);
+    border: 1px solid var(--border);
     border-radius: 8px;
     overflow-x: auto;
     text-align: center;
@@ -642,9 +682,9 @@
     gap: 8px;
     margin: 4px 0;
     padding: 8px 12px;
-    background: var(--surface);
+    background: rgba(255,255,255,0.75);
     border-radius: 10px;
-    border-left: 3px solid var(--accent);
+    border-left: 3px solid var(--accent-2);
     cursor: pointer;
     transition: background 0.15s;
     animation: fadeIn 0.25s ease;
@@ -652,7 +692,7 @@
   }
 
   .task-card:hover {
-    background: var(--surface-2);
+    background: rgba(255,255,255,0.95);
   }
 
   .task-card .task-card-icon {
@@ -682,6 +722,7 @@
   <div class="subtitle">语音问语音答 · 打字问文字答</div>
   <div class="header-actions right">
     <div class="voice-select"><select id="voice-picker"></select></div>
+    <button class="header-btn" id="push-btn" title="开启推送通知">🔕</button>
   </div>
 </header>
 
@@ -743,7 +784,7 @@ function addMsg(text, role, images = [], save = true) {
     div.appendChild(img);
   }
   if (text) {
-    if (role === 'ai') {
+    if (role === 'ai' || role === 'notify') {
       renderStructured(div, text);
     } else {
       const p = document.createElement('p');
@@ -859,8 +900,18 @@ async function drainTTSQueue() {
   ttsPlaying = false;
 }
 
+// Streaming TTS: fetch /api/tts/stream and feed MP3 chunks into MediaSource progressively.
+// Falls back to buffered /api/tts if MediaSource is unavailable.
 async function playOneTTS(text) {
   const voice = voicePicker.value;
+
+  // Try streaming via MediaSource (supported in Chrome/Edge desktop + Android Chrome)
+  if (typeof MediaSource !== 'undefined' && MediaSource.isTypeSupported('audio/mpeg')) {
+    await playOneStreamingTTS(text, voice);
+    return;
+  }
+
+  // Fallback: buffer the whole response then play
   const res = await fetch('/api/tts', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -871,11 +922,101 @@ async function playOneTTS(text) {
   const audioBlob = await res.blob();
   const url = URL.createObjectURL(audioBlob);
   currentAudio = new Audio(url);
-
-  await new Promise((resolve, reject) => {
+  await new Promise((resolve) => {
     currentAudio.onended = () => { URL.revokeObjectURL(url); resolve(); };
     currentAudio.onerror = () => { URL.revokeObjectURL(url); resolve(); };
     currentAudio.play().catch(resolve);
+  });
+  currentAudio = null;
+}
+
+async function playOneStreamingTTS(text, voice) {
+  const ms = new MediaSource();
+  const url = URL.createObjectURL(ms);
+  currentAudio = new Audio(url);
+
+  await new Promise((resolve) => {
+    ms.addEventListener('sourceopen', resolve, { once: true });
+    currentAudio.play().catch(() => {});
+  });
+
+  let sb;
+  try {
+    sb = ms.addSourceBuffer('audio/mpeg');
+  } catch (e) {
+    // MediaSource doesn't support audio/mpeg on this device; fallback
+    URL.revokeObjectURL(url);
+    currentAudio = null;
+    const res = await fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, voice }),
+    });
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const u2 = URL.createObjectURL(blob);
+    currentAudio = new Audio(u2);
+    await new Promise((resolve) => {
+      currentAudio.onended = () => { URL.revokeObjectURL(u2); resolve(); };
+      currentAudio.onerror = () => { URL.revokeObjectURL(u2); resolve(); };
+      currentAudio.play().catch(resolve);
+    });
+    currentAudio = null;
+    return;
+  }
+
+  const res = await fetch('/api/tts/stream', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, voice }),
+  });
+
+  if (!res.ok) {
+    ms.endOfStream();
+    URL.revokeObjectURL(url);
+    currentAudio = null;
+    return;
+  }
+
+  const reader = res.body.getReader();
+
+  // Helper: wait until SourceBuffer is not updating
+  function waitForSB() {
+    return new Promise((resolve) => {
+      if (!sb.updating) { resolve(); return; }
+      sb.addEventListener('updateend', resolve, { once: true });
+    });
+  }
+
+  let done = false;
+  while (!done) {
+    const { value, done: rdDone } = await reader.read();
+    done = rdDone;
+    if (value && value.byteLength > 0) {
+      await waitForSB();
+      try {
+        sb.appendBuffer(value);
+      } catch (e) {
+        // QuotaExceededError or similar — abort and fall back to waiting
+        console.warn('TTS stream append error:', e);
+        break;
+      }
+    }
+  }
+
+  await waitForSB();
+  try { ms.endOfStream(); } catch (_) {}
+
+  // Wait for playback to finish
+  await new Promise((resolve) => {
+    const onEnd = () => { URL.revokeObjectURL(url); resolve(); };
+    currentAudio.addEventListener('ended', onEnd, { once: true });
+    currentAudio.addEventListener('error', onEnd, { once: true });
+    // If audio has already ended before we got here
+    if (currentAudio.ended || currentAudio.paused) {
+      URL.revokeObjectURL(url);
+      resolve();
+    }
   });
   currentAudio = null;
 }
@@ -1110,11 +1251,10 @@ stopBtn.addEventListener('click', stopGeneration);
 
 clearBtn.addEventListener('click', () => {
   if (isGenerating) stopGeneration();
-  chatEl.innerHTML = '';
-  chatHistory = [];
-  saveChatHistory();
-  addMsg('主人，有什么需要希露菲效劳的吗？', 'ai', [], false);
-  setStatus('准备就绪', '');
+  // 同时清除 session_id 和聊天记录缓存，刷新后服务端开全新历史
+  sessionStorage.removeItem('fenglingSession');
+  sessionStorage.removeItem('fenglingHistory');
+  location.reload();
 });
 
 async function sendMessage(text, doTTS = false, images = []) {
@@ -1368,6 +1508,10 @@ async function loadVoices() {
     const picker = document.getElementById('voice-picker');
     picker.innerHTML = '';
 
+    // Prefer localStorage over server default (server already persists, but localStorage
+    // covers the case where the page loads before the server reflects the saved value)
+    const saved = localStorage.getItem('tts_voice') || data.current;
+
     let lastGender = '';
     for (const v of data.voices) {
       if (v.gender !== lastGender) {
@@ -1379,7 +1523,7 @@ async function loadVoices() {
       const opt = document.createElement('option');
       opt.value = v.id;
       opt.textContent = `${v.name} (${v.tag})`;
-      if (v.id === data.current) opt.selected = true;
+      if (v.id === saved) opt.selected = true;
       picker.lastElementChild.appendChild(opt);
     }
   } catch (err) {
@@ -1388,7 +1532,144 @@ async function loadVoices() {
 }
 loadVoices();
 
-// Restore chat history or show welcome
+voicePicker.addEventListener('change', async () => {
+  const voice = voicePicker.value;
+  localStorage.setItem('tts_voice', voice);
+  try {
+    await fetch('/api/voices/preference', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ voice }),
+    });
+  } catch (err) {
+    console.error('Failed to save voice preference:', err);
+  }
+});
+
+// ── Web Push ─────────────────────────────────────────────────
+
+const pushBtn = document.getElementById('push-btn');
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+}
+
+async function initPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+  // iOS 非 standalone 模式：显示一次性提示
+  const isIOS = /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
+  const isStandalone = window.navigator.standalone;
+  if (isIOS && !isStandalone && !sessionStorage.getItem('iosBannerShown')) {
+    sessionStorage.setItem('iosBannerShown', '1');
+    const banner = document.createElement('div');
+    banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#1a1d27;color:#e4e6ed;padding:12px 16px;font-size:13px;z-index:9999;border-top:1px solid #6c63ff;display:flex;align-items:center;gap:8px;';
+    banner.innerHTML = '<span>📲</span><span>在 Safari 中点击「分享」→「添加到主屏幕」以启用推送通知</span><button onclick="this.parentNode.remove()" style="margin-left:auto;background:none;border:none;color:#8b8fa3;cursor:pointer;font-size:18px;">×</button>';
+    document.body.appendChild(banner);
+  }
+
+  try {
+    const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    await navigator.serviceWorker.ready;
+
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) {
+      pushBtn.textContent = '🔔';
+      pushBtn.title = '已开启推送通知（点击关闭）';
+      // 同步到服务器（页面刷新后补齐，幂等）
+      fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(existing.toJSON()),
+      }).catch(() => {});
+    }
+  } catch (e) {
+    console.warn('Service worker registration failed:', e);
+  }
+}
+
+async function subscribePush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    alert('当前浏览器不支持 Web Push 通知');
+    return;
+  }
+
+  const reg = await navigator.serviceWorker.ready;
+  const existing = await reg.pushManager.getSubscription();
+
+  // 如果已订阅且按钮显示已开启 → 取消订阅
+  if (existing && pushBtn.textContent === '🔔') {
+    await existing.unsubscribe();
+    await fetch('/api/push/subscribe', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endpoint: existing.endpoint }),
+    });
+    pushBtn.textContent = '🔕';
+    pushBtn.title = '开启推送通知';
+    return;
+  }
+
+  // 请求通知权限
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') {
+    alert('通知权限被拒绝，请在浏览器设置中允许通知');
+    return;
+  }
+
+  try {
+    // 获取 VAPID public key
+    const keyResp = await fetch('/api/push/vapid-public-key');
+    const { publicKey } = await keyResp.json();
+
+    // 如果有旧订阅（key 不同或来自别的浏览器），先 unsubscribe 再重新订阅
+    if (existing) {
+      await existing.unsubscribe();
+    }
+
+    // 订阅
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey),
+    });
+
+    // 保存到服务器
+    await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sub.toJSON()),
+    });
+
+    pushBtn.textContent = '🔔';
+    pushBtn.title = '已开启推送通知（点击关闭）';
+  } catch (e) {
+    console.error('Push subscription failed:', e.name, e.message, e);
+    setStatus('推送订阅失败: ' + e.message, 'error');
+  }
+}
+
+pushBtn.addEventListener('click', subscribePush);
+initPush();
+
+// 服务器主动推送 → 插入对话流（不依赖 Service Worker postMessage）
+(function connectNotifyStream() {
+  const es = new EventSource('/api/notify-stream');
+  es.onmessage = (e) => {
+    try {
+      const { body } = JSON.parse(e.data);
+      if (body) addMsg('🔔 ' + body, 'notify', [], false);  // 不持久化到 chatHistory，避免刷新后重放
+    } catch {}
+  };
+  es.onerror = () => {
+    es.close();
+    setTimeout(connectNotifyStream, 5000);  // 断线重连
+  };
+})();
+
+
 if (chatHistory.length > 0) {
   for (const m of chatHistory) {
     addMsg(m.text, m.role, m.images || [], false);

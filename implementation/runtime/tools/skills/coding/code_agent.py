@@ -1,53 +1,57 @@
-"""code_agent tool — 在进程内启动一个隔离的编程子代理。
+"""code_agent tool — 通过 Claude Code CLI 执行编码任务。
 
-子代理复用同一 LLM 客户端和工具注册表，但有：
-- 独立 session（无主 agent 历史）
-- 精简的编程专用 system prompt
-- 只激活 system skill 工具（exec / read_file / write_file / list_files / search / fetch_url）
-- 独立的 tool-calling 循环，最多 20 轮
+spawn `claude-internal -p` 进程，通过 OpenRouter proxy 调用 Claude 模型，
+解析 JSON 结果返回给风铃聊天。
 """
 
+import asyncio
 import json
 import logging
 import os
-import time
+import shutil
 from pathlib import Path
 
-from openai import AsyncOpenAI
-
-from tools import tool, run_tool, _REGISTRY
+from tools import tool
 
 log = logging.getLogger("code-agent")
 
 _WORKDIR = os.environ.get("DEVKIT_DIR", str(Path(__file__).resolve().parents[5]))
-_MAX_ROUNDS = 20
 _MAX_OUTPUT = 16_000
+_TIMEOUT = 300  # 5 分钟
+_MAX_BUDGET = "2.00"  # 单次预算上限（大文件读取 token 开销高）
 
-_SYSTEM_PROMPT = """\
-你是一个专注编程任务的 AI 子代理，在 {workdir} 目录下工作。
+# claude-internal CLI 查找：优先环境变量，再 PATH，再 nvm 常见位置
+_CLAUDE_CLI = os.environ.get("CLAUDE_CODE_CLI", "")
 
-规范：
-- 先用 list_files / read_file 理解现有代码，再动手
-- 修改前确认文件路径和内容，避免覆盖无关代码
-- 完成后输出简洁报告：做了什么、改了哪些文件、是否需要验证
-
-只做被要求的事，不要引入额外改动。
-"""
-
-# 只允许 system skill 工具
-_ALLOWED_TOOLS = {"exec", "read_file", "write_file", "list_files", "search", "fetch_url"}
+MODEL_MAP = {
+    "sonnet": "claude-sonnet-4-5",
+    "haiku": "claude-haiku-4-5",
+    "opus": "claude-opus-4-5",
+}
+DEFAULT_MODEL = "sonnet"
 
 
-def _get_coding_schemas() -> list[dict]:
-    return [td.schema for name, td in _REGISTRY.items() if name in _ALLOWED_TOOLS]
+def _find_claude_cli() -> str:
+    """Find claude-internal CLI binary."""
+    if _CLAUDE_CLI:
+        return _CLAUDE_CLI
+    # Try PATH
+    found = shutil.which("claude-internal")
+    if found:
+        return found
+    # Common nvm location
+    nvm_dir = os.environ.get("NVM_DIR", os.path.expanduser("~/.nvm"))
+    for candidate in Path(nvm_dir).glob("versions/node/*/bin/claude-internal"):
+        return str(candidate)
+    return "claude-internal"  # fallback, hope it's in PATH
 
 
 @tool(
     name="code_agent",
     description=(
-        "启动一个隔离的编程子代理执行编码任务。"
+        "启动 Claude Code CLI 执行编码任务。"
         "适合：实现新功能、修复 bug、重构代码、生成脚本、代码 review。"
-        "子代理有独立 context，直接读写文件和执行命令，完成后返回摘要报告。"
+        "Claude 有独立 context，直接读写文件和执行命令，完成后返回摘要报告。"
     ),
     parameters={
         "type": "object",
@@ -60,6 +64,10 @@ def _get_coding_schemas() -> list[dict]:
                 "type": "string",
                 "description": "工作目录（默认：项目根目录）",
             },
+            "model": {
+                "type": "string",
+                "description": "模型: sonnet(默认) / haiku / opus",
+            },
         },
         "required": ["prompt"],
     },
@@ -67,100 +75,128 @@ def _get_coding_schemas() -> list[dict]:
 async def handle(args: dict, ctx) -> str:
     prompt = args["prompt"].strip()
     workdir = args.get("workdir") or _WORKDIR
+    model_key = args.get("model", DEFAULT_MODEL).lower().strip()
+    model_name = MODEL_MAP.get(model_key, MODEL_MAP[DEFAULT_MODEL])
 
-    client = AsyncOpenAI(
-        api_key=os.environ.get("LLM_API_KEY", ""),
-        base_url=os.environ.get("LLM_BASE_URL", ""),
-    )
-    model = os.environ.get("AGENT_MODEL", "gemini-3.1-pro-preview")
-    system = _SYSTEM_PROMPT.format(workdir=workdir)
-    schemas = _get_coding_schemas()
+    proxy_port = os.environ.get("CLAUDE_CODE_PROXY_PORT", "9999")
+    cli_path = _find_claude_cli()
 
-    messages: list[dict] = [
-        {"role": "user", "content": prompt},
+    # 构建命令
+    cmd = [
+        cli_path,
+        "-p", prompt,
+        "--model", model_name,
+        "--output-format", "json",
+        "--allowedTools", "Bash,Read,Write,Edit,Glob,Grep",
+        "--max-budget-usd", _MAX_BUDGET,
+        "--no-session-persistence",
     ]
-    full_output = ""
-    session_key = f"code_agent_{int(time.monotonic() * 1000)}"
 
-    log.info("code_agent started: model=%s, tools=%s", model, [s["function"]["name"] for s in schemas])
+    # 获取方法论上下文并注入 CLI
+    methodology_prompt = ""
+    try:
+        engine = ctx.get("methodology_engine") if ctx and hasattr(ctx, "get") else None
+        if engine:
+            from methodology.context import build_methodology_context
+            session_key = getattr(ctx, "session_key", None) or "default"
+            methodology_prompt = await build_methodology_context(engine, session_key)
+    except Exception:
+        pass  # 降级：无方法论上下文也可以运行
 
-    for round_n in range(1, _MAX_ROUNDS + 1):
-        api_messages = [{"role": "system", "content": system}] + messages
+    if methodology_prompt:
+        cmd.extend(["--append-system-prompt", methodology_prompt])
 
+    # 构建环境变量：继承当前环境 + 覆盖关键项
+    merged_env = os.environ.copy()
+    merged_env.update({
+        "ANTHROPIC_API_KEY": "proxy-handles-auth",
+        "ANTHROPIC_BASE_URL": f"http://127.0.0.1:{proxy_port}",
+        "DISABLE_AUTOUPDATER": "1",
+        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    })
+    # 防止嵌套检测
+    merged_env.pop("CLAUDE_CODE", None)
+    merged_env.pop("CLAUDECODE", None)
+
+    log.info(
+        "code_agent: cli=%s model=%s workdir=%s",
+        cli_path, model_name, workdir,
+    )
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=merged_env,
+            cwd=workdir,
+        )
+        stdout, stderr = await asyncio.wait_for(
+            proc.communicate(), timeout=_TIMEOUT
+        )
+    except asyncio.TimeoutError:
         try:
-            response = await client.chat.completions.create(
-                model=model,
-                messages=api_messages,
-                tools=schemas or None,
-                stream=True,
+            proc.kill()
+        except Exception:
+            pass
+        return "[error] code_agent 超时（5分钟），任务可能过于复杂，建议拆分为子任务。"
+    except FileNotFoundError:
+        return (
+            f"[error] 找不到 claude-internal CLI: {cli_path}\n"
+            "请确认已安装 Claude Code CLI 并在 PATH 中。"
+        )
+    except Exception as e:
+        log.error("code_agent unexpected error: %s", e, exc_info=True)
+        return f"[error] code_agent 启动失败: {e}"
+
+    # 非零退出码
+    if proc.returncode != 0:
+        err_text = stderr.decode("utf-8", errors="replace").strip()
+        if not err_text:
+            err_text = stdout.decode("utf-8", errors="replace").strip()
+        err_text = err_text[:2000]  # 截断错误信息
+        return f"[error] code_agent 退出码 {proc.returncode}\n{err_text}"
+
+    # 解析 JSON 输出
+    raw = stdout.decode("utf-8", errors="replace").strip()
+    try:
+        result = json.loads(raw)
+        subtype = result.get("subtype", "")
+        text = result.get("result", "")
+        cost = result.get("cost_usd", 0) or result.get("total_cost_usd", 0) or 0
+        duration = result.get("duration_ms", 0) or 0
+        duration_s = duration / 1000 if duration else 0
+
+        # 处理 CLI 错误 subtype
+        if not text and subtype == "error_max_budget_usd":
+            text = (
+                f"[error] 预算耗尽（${cost:.2f}），任务在执行中被截断。"
+                "大文件读取消耗大量 token，建议：\n"
+                "1. 缩小任务范围，指定具体文件和行号\n"
+                "2. 将任务拆分为多个小步骤"
             )
-        except Exception as e:
-            return f"[error] code_agent LLM call failed: {e}"
+        elif not text and subtype and subtype.startswith("error"):
+            text = f"[error] Claude Code 异常退出: {subtype}"
+    except (json.JSONDecodeError, KeyError):
+        # 非 JSON 输出，直接返回原文
+        text = raw
+        cost = 0
+        duration_s = 0
 
-        assistant_text = ""
-        tool_calls_map: dict[int, dict] = {}
+    if not text:
+        text = "(Claude Code 无输出)"
 
-        async for chunk in response:
-            delta = chunk.choices[0].delta if chunk.choices else None
-            if not delta:
-                continue
-            if delta.content:
-                assistant_text += delta.content
-            if delta.tool_calls:
-                for tc in delta.tool_calls:
-                    idx = tc.index
-                    if idx not in tool_calls_map:
-                        tool_calls_map[idx] = {"id": tc.id or "", "name": "", "arguments": ""}
-                    entry = tool_calls_map[idx]
-                    if tc.id:
-                        entry["id"] = tc.id
-                    if tc.function:
-                        if tc.function.name:
-                            entry["name"] = tc.function.name
-                        if tc.function.arguments:
-                            entry["arguments"] += tc.function.arguments
+    if len(text) > _MAX_OUTPUT:
+        text = text[:_MAX_OUTPUT] + f"\n...(截断，共 {len(text)} 字符)"
 
-        if assistant_text:
-            full_output = assistant_text  # 最后一轮文本即最终报告
+    # 格式化结果
+    footer_parts = []
+    if cost:
+        footer_parts.append(f"💰 ${cost:.4f}")
+    if duration_s:
+        footer_parts.append(f"⏱ {duration_s:.1f}s")
+    footer = " | ".join(footer_parts)
 
-        if not tool_calls_map:
-            messages.append({"role": "assistant", "content": assistant_text})
-            break
-
-        sorted_calls = [tool_calls_map[i] for i in sorted(tool_calls_map)]
-        messages.append({
-            "role": "assistant",
-            "content": assistant_text or None,
-            "tool_calls": [
-                {"id": tc["id"], "type": "function",
-                 "function": {"name": tc["name"], "arguments": tc["arguments"]}}
-                for tc in sorted_calls
-            ],
-        })
-
-        import asyncio as _asyncio
-
-        async def _run_one(tc: dict) -> tuple[str, str, str]:
-            try:
-                tc_args = json.loads(tc["arguments"]) if tc["arguments"] else {}
-            except json.JSONDecodeError:
-                tc_args = {}
-            # 限制 exec 的 workdir 到子代理工作目录
-            if tc["name"] == "exec" and "workdir" not in tc_args:
-                tc_args["workdir"] = workdir
-            log.info("code_agent tool: %s(%s)", tc["name"], str(tc_args)[:120])
-            result = await run_tool(tc["name"], tc_args, session_key=session_key)
-            return tc["id"], tc["name"], result
-
-        results = await _asyncio.gather(*[_run_one(tc) for tc in sorted_calls])
-
-        for tool_id, name, result in results:
-            messages.append({"role": "tool", "tool_call_id": tool_id, "content": result})
-
-    else:
-        full_output = (full_output or "") + f"\n[警告] 已达到最大工具轮次 {_MAX_ROUNDS}，任务可能未完成"
-
-    if len(full_output) > _MAX_OUTPUT:
-        full_output = full_output[:_MAX_OUTPUT] + f"\n...(截断，共 {len(full_output)} 字符)"
-
-    return full_output or "(子代理无输出)"
+    if footer:
+        return f"{text}\n\n---\n{footer}"
+    return text

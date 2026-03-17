@@ -1,0 +1,44 @@
+{
+  "id": "reminder-conflict-001",
+  "title": "提醒/日程冲突检测",
+  "description": "设置提醒或新增日程时，若目标时间与已有安排时间重叠，工具应在成功响应中追加冲突警告，操作本身不阻塞。",
+  "scenarios": [
+    {
+      "id": "s1",
+      "name": "remind 与已有日程时间冲突",
+      "given": "schedule.json 中已有 '2026-03-22 10:00 爬山活动'",
+      "when": "调用 remind(message='拍集体照', delay='2026-03-22 10:00')",
+      "then": [
+        "工具返回 ok（提醒设置成功）",
+        "返回字符串包含 '⚠️ 附近有日程安排'",
+        "返回字符串包含 '爬山活动'"
+      ]
+    },
+    {
+      "id": "s2",
+      "name": "remind 无冲突",
+      "given": "schedule.json 中没有 2026-03-25 附近的日程",
+      "when": "调用 remind(message='喝水', delay='2026-03-25 14:00')",
+      "then": [
+        "工具返回 ok（提醒设置成功）",
+        "返回字符串不包含 '⚠️'"
+      ]
+    },
+    {
+      "id": "s3",
+      "name": "schedule add 与已有日程时间冲突",
+      "given": "schedule.json 中已有 '2026-03-22 10:00 爬山活动'",
+      "when": "调用 schedule(action='add', datetime='2026-03-22 10:15', title='集体合影')",
+      "then": [
+        "工具返回 ok（事件写入成功）",
+        "返回字符串包含 '⚠️ 附近有日程安排'",
+        "返回字符串包含 '爬山活动'",
+        "新事件确实写入 schedule.json"
+      ]
+    }
+  ],
+  "non_goals": [
+    "冲突时阻止操作",
+    "holiday / lunar 类提醒的冲突检测（粒度为天，无法做分钟级检测）"
+  ]
+}

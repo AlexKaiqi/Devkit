@@ -22,7 +22,7 @@ fi
 MESSAGE="${1:-}"
 [ -z "$MESSAGE" ] && { echo "用法: $0 [--urgent] "消息内容"" >&2; exit 1; }
 
-HOUR=$(date +%H)
+HOUR=$(TZ='Asia/Shanghai' date +%H)
 if ! $URGENT && { [ "$HOUR" -ge 23 ] || [ "$HOUR" -lt 8 ]; }; then
   echo "静默时间 (23:00-08:00)，非紧急消息已跳过" >&2
   exit 0

@@ -1,0 +1,121 @@
+classes:
+  ChangeType:
+    instances:
+      - new_capability
+      - behavior_change
+      - bug_fix
+      - refactoring
+      - doc_revision
+      - eval_asset
+
+  Phase:
+    instances:
+      - classify
+      - requirements
+      - design
+      - decomposition
+      - implementation
+      - verification
+      - asset_capture
+      - finalize
+
+  GateType:
+    instances:
+      - hard_block
+      - soft_warn
+      - skip_with_reason
+      - halt_condition
+
+mandatory_paths:
+  new_capability:
+    phases:
+      - classify
+      - requirements
+      - design
+      - implementation
+      - verification
+      - asset_capture
+      - finalize
+    gates:
+      requirements->design:
+        - type: hard_block
+          check: acceptance_case_exists
+          message: "新能力必须先有验收场景（在 requirements/acceptance/ 下创建含 feature_slug 的 JSON 文件）"
+      design->implementation:
+        - type: hard_block
+          check: design_decision_exists
+          message: "新能力必须先有设计决策（在 design/decisions/ 或 design/architecture/ 下创建含 feature_slug 的 MD 文件）"
+      verification->asset_capture:
+        - type: soft_warn
+          check: existing_tests_pass
+          message: "建议确认所有单元测试通过后再进行资产沉淀"
+      implementation->verification:
+        - type: hard_block
+          check: existing_tests_pass
+          message: "新能力实现完成后必须确认所有单元测试通过才能进入验证阶段"
+
+  behavior_change:
+    phases:
+      - classify
+      - requirements
+      - design
+      - implementation
+      - verification
+      - finalize
+    gates:
+      requirements->design:
+        - type: hard_block
+          check: acceptance_case_updated
+          message: "行为变更必须更新验收场景（在 requirements/acceptance/ 下更新或新增含 feature_slug 的 JSON 文件）"
+      implementation->verification:
+        - type: soft_warn
+          check: existing_tests_pass
+          message: "建议在行为变更完成后立即运行测试验证"
+
+  bug_fix:
+    phases:
+      - classify
+      - implementation
+      - verification
+      - asset_capture
+      - finalize
+    gates:
+      verification->asset_capture:
+        - type: soft_warn
+          check: regression_case_created
+          message: "建议将此 bug 沉淀为回归用例（在 requirements/acceptance/regressions/ 下创建含 feature_slug 的 JSON 文件）"
+
+  refactoring:
+    phases:
+      - classify
+      - implementation
+      - verification
+      - finalize
+    gates:
+      classify->implementation:
+        - type: hard_block
+          check: existing_tests_pass
+          message: "重构前必须确认现有测试全部通过作为基线（运行 .venv/bin/pytest implementation/tests/unit/ -q）"
+      implementation->verification:
+        - type: hard_block
+          check: existing_tests_pass
+          message: "重构不能破坏现有测试（运行 .venv/bin/pytest implementation/tests/unit/ -q 确认全部通过）"
+
+  doc_revision:
+    phases:
+      - classify
+      - implementation
+      - finalize
+    gates: {}
+
+  eval_asset:
+    phases:
+      - classify
+      - design
+      - implementation
+      - finalize
+    gates:
+      design->implementation:
+        - type: soft_warn
+          check: rubric_defined
+          message: "建议先定义评测 rubric（在 design/evaluation/ 下创建含 feature_slug 的 MD 或 YAML 文件）"

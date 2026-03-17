@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 DEVKIT_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(DEVKIT_ROOT))
 sys.path.insert(0, str(DEVKIT_ROOT / "implementation" / "runtime"))
 
 collect_ignore = ["mobile"]

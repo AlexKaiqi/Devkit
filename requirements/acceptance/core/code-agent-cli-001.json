@@ -1,0 +1,50 @@
+{
+  "id": "code-agent-cli-001",
+  "title": "code_agent 通过 Claude Code CLI 执行编码任务",
+  "description": "code_agent skill spawn claude-internal -p 进程，通过 OpenRouter proxy 调用 Claude 模型，解析 JSON 结果返回给风铃。同时注入方法论上下文，使 Claude CLI 遵循门控约束。",
+  "scenarios": [
+    {
+      "id": "s1",
+      "name": "成功调用返回结果",
+      "given": "OpenRouter proxy 运行中，claude-internal CLI 可用",
+      "when": "调用 code_agent(prompt='读取 STATUS.md 的前3行')",
+      "then": ["返回包含文件内容的文本", "返回包含 cost 信息"]
+    },
+    {
+      "id": "s2",
+      "name": "超时处理",
+      "given": "CLI 进程运行超过 300 秒",
+      "when": "code_agent 等待超时",
+      "then": ["返回 [error] 超时信息", "进程被 kill"]
+    },
+    {
+      "id": "s3",
+      "name": "模型参数映射",
+      "given": "用户指定 model=haiku",
+      "when": "调用 code_agent(prompt='...', model='haiku')",
+      "then": ["CLI --model 参数为 claude-haiku-4-5"]
+    },
+    {
+      "id": "s4",
+      "name": "方法论上下文注入",
+      "given": "当前 session 有 active Feature 处于 requirements 阶段",
+      "when": "调用 code_agent(prompt='...')",
+      "then": [
+        "CLI 命令包含 --append-system-prompt",
+        "追加内容包含 [方法论状态]",
+        "追加内容包含门控未通过的提示"
+      ]
+    },
+    {
+      "id": "s5",
+      "name": "无方法论状态时不附加",
+      "given": "无 active Feature 或无 methodology engine",
+      "when": "调用 code_agent(prompt='...')",
+      "then": ["CLI 命令不包含 --append-system-prompt"]
+    }
+  ],
+  "non_goals": [
+    "CLI 内部的方法论拦截（Claude CLI 本身不运行 interceptor，只靠 prompt 约束）",
+    "Proxy 的正确性验证（另行测试）"
+  ]
+}

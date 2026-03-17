@@ -64,6 +64,18 @@ Runtime Core 负责：
 
 所有能力接入统一通过工具协议暴露给 runtime。无论底层是 CLI、MCP、HTTP 还是本地服务，对 runtime 都应表现为一致的工具面。
 
+### code_agent 调用链路
+
+code_agent 是 Tool Protocol 的一个特殊实例，通过 Claude Code CLI 子进程执行编码任务：
+
+```
+code_agent → claude-internal -p (subprocess)
+  → OpenRouter Proxy (localhost:9999) → OpenRouter API → Claude 模型
+  方法论上下文通过 --append-system-prompt 注入
+```
+
+OpenRouter Proxy 作为支撑服务运行，负责模型名翻译和 SSE thinking block 过滤。详见 [code_agent 设计决策](../decisions/code-agent-claude-cli.md)。
+
 ### Event System
 
 事件系统负责承载所有非阻塞推进：定时器、外部回调、主动通知和任务续作。runtime 只发布意图，不直接承担长时间等待。

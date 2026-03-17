@@ -1,0 +1,53 @@
+# design/ontology/complexity-tracks.yaml
+
+classes:
+  Complexity:
+    instances: [trivial, standard, complex]
+    description: >
+      Feature 复杂度，由开发者在 create_feature 时设定。
+      影响强制路径（phase 列表）和门控要求。
+
+complexity_rules:
+  trivial:
+    description: "≤3 个文件改动，无跨模块依赖，无需设计阶段"
+    path_overrides:
+      new_capability:
+        skip_phases: [design]
+        reason: "trivial 新能力可跳过正式设计，直接 requirements→implementation"
+      behavior_change:
+        skip_phases: [design]
+        reason: "trivial 行为变更可跳过设计"
+    gate_relaxations:
+      - gate: design_decision_exists
+        relax_to: soft_warn
+        reason: "trivial 功能无需正式设计决策文档"
+
+  standard:
+    description: "默认复杂度，走完整 mandatory_path，无额外阶段"
+    path_overrides: {}
+    gate_relaxations: []
+
+  complex:
+    description: "多 story 功能，需先分解再实现"
+    path_overrides:
+      new_capability:
+        inject_phase: decomposition
+        inject_after: design
+        reason: "complex 新能力需要在 design 后、implementation 前完成 story 分解"
+        gate:
+          check: story_list_exists
+          type: hard_block
+          message: "complex 功能需先在 requirements/methodology/{feature_id}/stories.json 中完成 story 列表"
+      behavior_change:
+        inject_phase: decomposition
+        inject_after: design
+        reason: "complex 行为变更需要分解 story"
+        gate:
+          check: story_list_exists
+          type: hard_block
+          message: "complex 功能需先在 requirements/methodology/{feature_id}/stories.json 中完成 story 列表"
+    extra_gates:
+      verification→asset_capture:
+        - check: adversarial_review_completed
+          type: soft_warn
+          message: "建议 complex 功能在 asset_capture 前完成对抗性审查"

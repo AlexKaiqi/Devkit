@@ -1,7 +1,7 @@
 ---
 name: memory
 always: false
-keywords: [记住, 记一下, 备忘, 笔记, 记录, 别忘了, 想起来, 记得, 提醒我记, 保存, note, remember, recall, 查一下记录, 之前说过, 我说过]
+keywords: [记住, 记一下, 备忘, 笔记, 记录, 别忘了, 想起来, 记得, 提醒我记, 保存, note, remember, recall, 查一下记录, 之前说过, 我说过, 待办, 提醒自己, 忘了, 查一下]
 ---
 # Memory Skill
 

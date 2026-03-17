@@ -26,7 +26,8 @@ class ToolDef:
     schema: dict
     handler: Callable  # async (args: dict, ctx: ToolContext) -> str
     requires: list[str] = field(default_factory=list)
-    skill: str = ""    # which skill this tool belongs to
+    skill: str = ""        # which skill this tool belongs to
+    action_only: bool = False  # if True, executed via inline [ACTION:...] tag, not function call
 
 
 @dataclass
@@ -67,6 +68,7 @@ def tool(
     description: str,
     parameters: dict,
     requires: list[str] | None = None,
+    action_only: bool = False,
 ):
     """Decorator: declare and register a tool."""
 
@@ -93,6 +95,7 @@ def tool(
             handler=fn,
             requires=requires or [],
             skill=skill_name,
+            action_only=action_only,
         )
         # Register tool into its skill's tool list
         if skill_name and skill_name in _SKILLS:
@@ -234,11 +237,11 @@ def get_schemas(message: str = "") -> list[dict]:
     (backward-compatible full-load mode).
     """
     if not message:
-        # Full load: all tools with satisfied requires
+        # Full load: all tools with satisfied requires (excluding action_only)
         return [
             td.schema
             for td in _REGISTRY.values()
-            if all(k in _CONTEXT for k in td.requires)
+            if not td.action_only and all(k in _CONTEXT for k in td.requires)
         ]
 
     active_skills = get_active_skills(message)
@@ -246,6 +249,8 @@ def get_schemas(message: str = "") -> list[dict]:
 
     result = []
     for td in _REGISTRY.values():
+        if td.action_only:
+            continue
         if td.skill not in active_skill_names:
             continue
         if not all(k in _CONTEXT for k in td.requires):
@@ -287,4 +292,5 @@ async def run_tool(name: str, arguments: dict, session_key: str = "") -> str:
     try:
         return await td.handler(arguments, ctx)
     except Exception as e:
+        log.error("Tool %s raised: %s", name, e, exc_info=True)
         return f"[error] {name}: {e}"

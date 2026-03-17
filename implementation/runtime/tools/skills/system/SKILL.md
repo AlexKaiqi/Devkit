@@ -7,6 +7,7 @@ keywords: []
 
 基础系统能力，始终激活。
 
+- `grep` 在文件/目录中全文搜索（ripgrep），支持正则，比语义搜索快，无需预先索引
 - `exec` 执行 shell 命令，适合 git、脚本、调试
 - `read_file` / `write_file` 读写文件，写入前先确认路径
 - `list_files` 探索目录结构，先浏览再读取

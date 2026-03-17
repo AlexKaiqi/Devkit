@@ -14,3 +14,5 @@
 - [事件与通知](eventing-and-notification.md)
 - [任务图 Neo4j 选型](task-graph-neo4j.md)
 - [工具执行沙箱策略](tool-sandbox.md)
+- [方法论本体强制执行](ontology-enforcement.md)
+- [code_agent Claude CLI 调用与方法论注入](code-agent-claude-cli.md)

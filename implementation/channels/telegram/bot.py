@@ -9,8 +9,6 @@ import io
 import json
 import logging
 import os
-import subprocess
-import tempfile
 import time
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -24,7 +22,7 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
-import re
+from telegram.constants import ChatAction
 import aiohttp
 from aiohttp import web
 
@@ -32,6 +30,9 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "runtime"))
 from agent import AgentBackend, LocalAgent
 from event_bus import EventBus, Event
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from channel_utils import parse_response, extract_video_frames
 
 logging.basicConfig(
     format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
@@ -56,8 +57,11 @@ TTS_SPEED = float(os.environ.get("TTS_SPEED", "1.25"))
 agent = LocalAgent()
 
 TIMER_API_PORT = int(os.environ.get("TIMER_API_PORT", "8789"))
+VOICE_CHAT_PORT = int(os.environ.get("VOICE_CHAT_PORT", "3001"))
 
-event_bus = EventBus()
+event_bus = EventBus(
+    persist_path=Path(__file__).resolve().parents[2] / "runtime" / "data" / "timers.json"
+)
 
 # Bidirectional session <-> chat_id mapping
 _session_keys: dict[int, str] = {}
@@ -92,22 +96,6 @@ def audit(event: str, **kwargs):
 
 
 # ── Helpers ──────────────────────────────────────────
-
-CODE_BLOCK_RE = re.compile(r"```(\w*)\n(.*?)```", re.DOTALL)
-
-
-def parse_response(text: str) -> dict:
-    attachments = []
-    for m in CODE_BLOCK_RE.finditer(text):
-        attachments.append({
-            "type": "code",
-            "language": m.group(1) or "",
-            "content": m.group(2).strip(),
-        })
-    spoken = CODE_BLOCK_RE.sub("", text).strip()
-    spoken = re.sub(r"\n{3,}", "\n\n", spoken)
-    return {"spoken": spoken, "attachments": attachments}
-
 
 async def stt_transcribe(audio_bytes: bytes, filename: str = "audio.ogg") -> str:
     form = aiohttp.FormData()
@@ -154,43 +142,6 @@ async def tts_synthesize(text: str, voice: str = "") -> bytes | None:
                 log.error("TTS failed: %s", result.get("message", ""))
                 return None
             return base64.b64decode(result["data"])
-
-
-def extract_video_frames(video_bytes: bytes, max_frames: int = 4) -> list[str]:
-    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
-        tmp.write(video_bytes)
-        video_path = tmp.name
-    out_dir = tempfile.mkdtemp()
-    frames: list[str] = []
-    try:
-        probe = subprocess.run(
-            ["ffprobe", "-v", "quiet", "-show_entries", "format=duration",
-             "-of", "csv=p=0", video_path],
-            capture_output=True, text=True, timeout=10,
-        )
-        duration = float(probe.stdout.strip() or "1")
-        interval = max(duration / max_frames, 0.5)
-        subprocess.run(
-            ["ffmpeg", "-i", video_path,
-             "-vf", f"fps=1/{interval:.2f},scale=512:-1",
-             "-frames:v", str(max_frames), "-q:v", "5", "-y",
-             f"{out_dir}/f%03d.jpg"],
-            capture_output=True, timeout=60,
-        )
-        for fp in sorted(Path(out_dir).glob("f*.jpg")):
-            b64 = base64.b64encode(fp.read_bytes()).decode()
-            frames.append(f"data:image/jpeg;base64,{b64}")
-            fp.unlink()
-    except Exception as e:
-        log.warning("frame extraction failed: %s", e)
-    finally:
-        if os.path.exists(video_path):
-            os.unlink(video_path)
-        try:
-            os.rmdir(out_dir)
-        except OSError:
-            pass
-    return frames
 
 
 def _bind_session(chat_id: int, session_key: str) -> None:
@@ -277,8 +228,58 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not is_allowed(update):
         return
     await update.message.reply_text(
-        "主人好，我是希露菲 🎀\n随时为您效劳，发文字、语音或图片都可以。"
+        "主人好，我是希露菲 🎀\n"
+        "随时为您效劳，发文字、语音、图片或文档都可以。\n\n"
+        "常用指令：\n"
+        "/clear — 清空当前对话记忆\n"
+        "/timers — 查看待触发提醒\n"
+        "/help — 查看所有指令"
     )
+
+
+async def cmd_help(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_allowed(update):
+        return
+    await update.message.reply_text(
+        "🎐 希露菲指令列表\n\n"
+        "/start — 开始对话\n"
+        "/clear — 清空本次会话的对话历史\n"
+        "/timers — 列出所有待触发的提醒\n"
+        "/help — 显示本帮助\n\n"
+        "支持：文字 · 语音 · 图片 · 视频 · 文档（PDF/TXT/MD）"
+    )
+
+
+async def cmd_clear(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_allowed(update):
+        return
+    chat_id = update.effective_chat.id
+    session_key = await _resolve_session(chat_id)
+    # Clear in-memory session
+    if session_key in agent._sessions:
+        agent._sessions[session_key] = []
+    # Clear session file on disk
+    agent._save_session(session_key)
+    audit("session_clear", chat_id=chat_id)
+    await update.message.reply_text("✅ 对话记忆已清空，我们重新开始吧。")
+
+
+async def cmd_timers(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not is_allowed(update):
+        return
+    timers = event_bus.list_timers()
+    if not timers:
+        await update.message.reply_text("当前没有待触发的提醒。")
+        return
+    lines = [f"⏰ 待触发提醒（共 {len(timers)} 条）：\n"]
+    for t in timers:
+        remaining = round(t.get("remaining_seconds", 0))
+        h, rem = divmod(remaining, 3600)
+        m, s = divmod(rem, 60)
+        human = (f"{h}h" if h else "") + (f"{m}m" if m else "") + f"{s}s"
+        msg = t.get("payload", {}).get("message", "（无内容）")
+        lines.append(f"• {msg[:60]} — {human} 后触发")
+    await update.message.reply_text("\n".join(lines))
 
 
 async def _send_code_block(update: Update, lang: str, code: str):
@@ -291,13 +292,165 @@ async def _send_code_block(update: Update, lang: str, code: str):
         await update.message.reply_text(f"[{lang}]\n{code}")
 
 
-async def _reply_text_task(bot, chat_id: int, user_msg: str):
-    """Background: get runtime response and send reply. Non-blocking."""
+TG_MAX_LEN = 4000  # Telegram 单条上限 4096，留点余量
+
+
+def _split_message(text: str) -> list[str]:
+    """Split long text into Telegram-safe chunks, preferring paragraph boundaries."""
+    if len(text) <= TG_MAX_LEN:
+        return [text]
+    parts = []
+    while text:
+        if len(text) <= TG_MAX_LEN:
+            parts.append(text)
+            break
+        # Try to split at a paragraph boundary
+        cut = text.rfind("\n\n", 0, TG_MAX_LEN)
+        if cut == -1:
+            cut = text.rfind("\n", 0, TG_MAX_LEN)
+        if cut == -1:
+            cut = TG_MAX_LEN
+        parts.append(text[:cut].rstrip())
+        text = text[cut:].lstrip()
+    return parts
+
+
+async def _send_typing(bot, chat_id: int) -> None:
+    """Send a typing indicator (best-effort, non-blocking)."""
     try:
-        reply = await chat_via_agent(chat_id, user_msg)
-        parsed = parse_response(reply)
-        if parsed["spoken"]:
-            await bot.send_message(chat_id=chat_id, text=parsed["spoken"])
+        await bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
+    except Exception:
+        pass
+
+
+
+
+
+# Telegram 限流：每条消息约 1次/秒，每 chat 约 20次/分钟
+_STREAM_FLUSH_CHARS = 20   # 累积多少字符刷新一次
+_STREAM_FLUSH_SECS = 0.8   # 或距上次刷新超过多少秒
+
+
+async def _stream_to_message(
+    bot,
+    chat_id: int,
+    session_key: str,
+    user_msg: str,
+    prefix: str = "",
+    attachments: list[dict] | None = None,
+) -> str:
+    """Stream agent response into a live-updating Telegram message. Returns full text."""
+    # 发占位消息
+    placeholder = await bot.send_message(chat_id=chat_id, text="…")
+    msg_id = placeholder.message_id
+
+    buffer = ""
+    last_flush = time.monotonic()
+    last_sent = "…"
+    tool_status = ""  # 显示当前工具调用状态
+
+    async def _flush(final: bool = False):
+        nonlocal last_flush, last_sent
+        display = prefix + buffer
+        if tool_status and not final:
+            display = display + f"\n\n_{tool_status}_" if display else f"_{tool_status}_"
+        if not display:
+            display = "…"
+        if display == last_sent:
+            return
+        # Telegram 单条最大 4096 字符；中间更新只取前 TG_MAX_LEN
+        truncated = display[:TG_MAX_LEN]
+        if len(display) > TG_MAX_LEN and not final:
+            truncated = truncated + "…"
+        try:
+            await bot.edit_message_text(chat_id=chat_id, message_id=msg_id, text=truncated)
+            last_sent = display
+            last_flush = time.monotonic()
+        except Exception as e:
+            # 忽略 "message is not modified" 等无害错误
+            if "not modified" not in str(e).lower():
+                log.debug("edit_message_text error: %s", e)
+
+    try:
+        async for evt in agent.chat_send(
+            session_key, user_msg or "请看看这些内容", attachments=attachments,
+        ):
+            if evt["type"] == "text":
+                buffer += evt["content"]
+                now = time.monotonic()
+                if len(buffer) - len(last_sent.removeprefix(prefix)) >= _STREAM_FLUSH_CHARS \
+                        or now - last_flush >= _STREAM_FLUSH_SECS:
+                    await _flush()
+
+            elif evt["type"] == "tool":
+                name = evt.get("name", "")
+                status = evt.get("status", "")
+                if status == "running":
+                    tool_status = f"调用工具 {name}…"
+                else:
+                    tool_status = ""
+                await _flush()
+
+            elif evt["type"] == "done":
+                buffer = evt.get("full_text", buffer)
+                tool_status = ""
+
+            elif evt["type"] == "error":
+                buffer = f"抱歉，出了点问题：{evt['content']}"
+                tool_status = ""
+
+        # Final flush: first chunk goes into placeholder, rest as new messages
+        full_display = prefix + buffer
+        chunks = _split_message(full_display)
+        if chunks:
+            first = chunks[0]
+            if first != last_sent:
+                try:
+                    await bot.edit_message_text(chat_id=chat_id, message_id=msg_id, text=first)
+                except Exception as e:
+                    if "not modified" not in str(e).lower():
+                        log.debug("final edit error: %s", e)
+            for extra_chunk in chunks[1:]:
+                await bot.send_message(chat_id=chat_id, text=extra_chunk)
+        elif last_sent == "…":
+            await bot.edit_message_text(chat_id=chat_id, message_id=msg_id, text="（无回复）")
+
+    except Exception as e:
+        log.error("Stream error: %s", e)
+        buffer = f"抱歉，出了点问题：{e}"
+        try:
+            await bot.edit_message_text(chat_id=chat_id, message_id=msg_id, text=buffer[:TG_MAX_LEN])
+        except Exception:
+            pass
+
+    return buffer
+
+
+async def _reply_text_task(bot, chat_id: int, user_msg: str):
+    """Background: stream response into a live-updating message."""
+    await _reply_text_task_with_attachments(bot, chat_id, user_msg, None)
+
+
+async def _reply_text_task_with_attachments(
+    bot, chat_id: int, user_msg: str, attachments: list[dict] | None
+):
+    """Background: stream response, optionally with image/file attachments."""
+    session_key = await _resolve_session(chat_id)
+    audit("req", chat_id=chat_id, user=user_msg, source="telegram-text",
+          has_attachments=bool(attachments))
+    t0 = time.monotonic()
+
+    await _send_typing(bot, chat_id)
+
+    try:
+        full_reply = await _stream_to_message(
+            bot, chat_id, session_key, user_msg, attachments=attachments,
+        )
+        elapsed = round((time.monotonic() - t0) * 1000)
+        audit("res", chat_id=chat_id, assistant=full_reply[:500], ms=elapsed)
+
+        # 发送代码块附件
+        parsed = parse_response(full_reply)
         for att in parsed["attachments"]:
             try:
                 escaped = att["content"].replace("\\", "\\\\").replace("`", "\\`")
@@ -317,14 +470,24 @@ async def _reply_text_task(bot, chat_id: int, user_msg: str):
 
 
 async def _reply_voice_task(bot, chat_id: int, user_text: str):
-    """Background: get runtime response, send text + TTS. Non-blocking."""
+    """Background: stream response, then send TTS audio."""
+    session_key = await _resolve_session(chat_id)
+    prefix = f"🎤 {user_text}\n\n"
+    audit("req", chat_id=chat_id, user=user_text, source="telegram-voice")
+    t0 = time.monotonic()
+
+    await _send_typing(bot, chat_id)
+
     try:
-        reply = await chat_via_agent(chat_id, user_text)
-        parsed = parse_response(reply)
+        full_reply = await _stream_to_message(
+            bot, chat_id, session_key, user_text, prefix=prefix,
+        )
+        elapsed = round((time.monotonic() - t0) * 1000)
+        audit("res", chat_id=chat_id, assistant=full_reply[:500], ms=elapsed)
+
+        parsed = parse_response(full_reply)
         spoken = parsed["spoken"]
 
-        display_text = f"🎤 {user_text}\n\n{spoken}" if spoken else f"🎤 {user_text}"
-        await bot.send_message(chat_id=chat_id, text=display_text)
         for att in parsed["attachments"]:
             try:
                 escaped = att["content"].replace("\\", "\\\\").replace("`", "\\`")
@@ -340,7 +503,6 @@ async def _reply_voice_task(bot, chat_id: int, user_text: str):
             tts_t0 = time.monotonic()
             audio_data = await tts_synthesize(spoken)
             tts_ms = round((time.monotonic() - tts_t0) * 1000)
-
             if audio_data:
                 audit("tts", chat_id=chat_id,
                       text_len=len(spoken), audio_bytes=len(audio_data), ms=tts_ms)
@@ -412,12 +574,50 @@ async def handle_photo(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     audit("photo", chat_id=update.effective_chat.id, caption=caption,
           photo_size=len(photo_bytes))
 
-    reply = await chat_via_agent(update.effective_chat.id, caption, images=[data_url])
-    parsed = parse_response(reply)
-    if parsed["spoken"]:
-        await update.message.reply_text(parsed["spoken"])
-    for att in parsed["attachments"]:
-        await _send_code_block(update, att["language"], att["content"])
+    attachments = [{"mimeType": "image/jpeg", "content": b64}]
+    asyncio.create_task(_reply_text_task_with_attachments(
+        ctx.bot, update.effective_chat.id,
+        caption or "请看看这张图片",
+        attachments,
+    ))
+
+
+async def handle_document(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """处理文档上传（PDF/TXT/MD 等）——保存到临时目录，调用 docs_index 索引后对话。"""
+    if not is_allowed(update):
+        return
+
+    doc = update.message.document
+    if not doc:
+        return
+
+    filename = doc.file_name or "document"
+    caption = update.message.caption or ""
+
+    await _send_typing(ctx.bot, update.effective_chat.id)
+
+    # 下载文件
+    tg_file = await ctx.bot.get_file(doc.file_id)
+    import tempfile
+    with tempfile.NamedTemporaryFile(
+        suffix=Path(filename).suffix or ".bin",
+        prefix="tg_doc_",
+        delete=False,
+    ) as tmp:
+        await tg_file.download_to_memory(tmp)
+        tmp_path = tmp.name
+
+    audit("doc_upload", chat_id=update.effective_chat.id,
+          filename=filename, size=doc.file_size)
+
+    # 通过 agent 处理（索引 + 回复）
+    session_key = await _resolve_session(update.effective_chat.id)
+    user_msg = caption or f"我上传了一个文档《{filename}》，请先帮我索引它，然后告诉我主要内容。"
+    # 将临时路径注入到消息里供 docs_index 使用
+    if not caption:
+        user_msg = f"我上传了文档《{filename}》（已保存到 {tmp_path}），请用 docs_index 索引它，然后简要介绍内容。"
+
+    asyncio.create_task(_reply_text_task(ctx.bot, update.effective_chat.id, user_msg))
 
 
 async def handle_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -428,7 +628,7 @@ async def handle_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not video:
         return
 
-    await update.message.reply_text("正在分析视频...")
+    await _send_typing(ctx.bot, update.effective_chat.id)
 
     tg_file = await ctx.bot.get_file(video.file_id)
     video_bytes = await tg_file.download_as_bytearray()
@@ -444,30 +644,38 @@ async def handle_video(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     msg = (f"{caption}\n（视频截取了{len(frames)}帧）" if caption
            else f"请看看这个视频（截取了{len(frames)}帧）")
-    reply = await chat_via_agent(update.effective_chat.id, msg, images=frames)
-    parsed = parse_response(reply)
-    if parsed["spoken"]:
-        await update.message.reply_text(parsed["spoken"])
-    for att in parsed["attachments"]:
-        await _send_code_block(update, att["language"], att["content"])
+
+    attachments = [{"mimeType": "image/jpeg", "content": f.split(",", 1)[1]} for f in frames]
+    asyncio.create_task(_reply_text_task_with_attachments(
+        ctx.bot, update.effective_chat.id, msg, attachments,
+    ))
 
 
 # ── Timer event handler ───────────────────────────────
 
 async def _on_timer_fired(event: Event) -> None:
     global _bot_instance
-    if _bot_instance is None:
-        log.error("Timer fired but bot instance not ready")
-        return
-
-    chat_id = session_to_chat_id(event.session_key)
-    if chat_id is None:
-        log.error("Timer fired but can't resolve chat_id for session '%s'", event.session_key)
-        return
 
     message = event.payload.get("message", "")
     if not message:
         log.warning("Timer fired with empty message, session=%s", event.session_key)
+        return
+
+    chat_id = session_to_chat_id(event.session_key)
+
+    # Fengling web sessions（非 Telegram）：只走 Web Push，不走 Telegram
+    if chat_id is None:
+        log.info(
+            "Timer fired for non-Telegram session '%s', delivering via Web Push only",
+            event.session_key,
+        )
+        await _web_push_timer(message)
+        audit("timer.fired", session_key=event.session_key, message=message[:200],
+              timer_id=event.payload.get("timer_id", ""), channel="web_push")
+        return
+
+    if _bot_instance is None:
+        log.error("Timer fired but bot instance not ready")
         return
 
     # Retry on transient network errors (e.g. ConnectTimeout)
@@ -478,6 +686,8 @@ async def _on_timer_fired(event: Event) -> None:
             audit("timer.fired", chat_id=chat_id, message=message[:200],
                   timer_id=event.payload.get("timer_id", ""))
             log.info("Timer delivered to chat_id=%s: %s", chat_id, message[:80])
+            # 并发触发 Web Push（fire-and-forget，不影响 Telegram 成功状态）
+            asyncio.create_task(_web_push_timer(message))
             return
         except Exception as e:
             last_err = e
@@ -492,6 +702,20 @@ async def _on_timer_fired(event: Event) -> None:
 
 
 # ── Timer HTTP API ────────────────────────────────────
+
+async def _web_push_timer(message: str) -> None:
+    """Fire-and-forget Web Push for timer messages."""
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                f"http://localhost:{VOICE_CHAT_PORT}/api/push/send",
+                json={"title": "风铃提醒", "body": message},
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                data = await resp.json()
+                log.info("Web Push timer sent=%s failed=%s", data.get("sent", 0), data.get("failed", 0))
+    except Exception as e:
+        log.warning("Web Push timer delivery failed: %s", e)
 
 def _default_session_key() -> str:
     """Best-effort default: last active session, or tg-{ALLOWED_CHAT_ID}."""
@@ -508,26 +732,51 @@ async def _api_create_timer(request: web.Request) -> web.Response:
     except Exception:
         return web.json_response({"ok": False, "error": "invalid JSON"}, status=400)
 
+    cron_expr = data.get("cron_expr", "").strip()
     delay = data.get("delay_seconds")
     session_key = data.get("session_key", "") or _default_session_key()
     message = data.get("message", "")
+    label = data.get("label", "")
+    intent = data.get("intent")  # optional semantic intent dict
 
-    if not delay or not isinstance(delay, (int, float)) or delay <= 0:
-        return web.json_response({"ok": False, "error": "delay_seconds must be > 0"}, status=400)
     if not session_key:
         return web.json_response({"ok": False, "error": "session_key required (no default available)"}, status=400)
     if not message:
         return web.json_response({"ok": False, "error": "message required"}, status=400)
 
-    timer_id = await event_bus.schedule_timer(
-        delay_seconds=float(delay),
-        session_key=session_key,
-        payload={"message": message},
-    )
-    audit("timer.created", session_key=session_key,
-          delay_seconds=delay, message=message[:200], timer_id=timer_id)
+    if cron_expr:
+        # Periodic cron timer
+        try:
+            from croniter import croniter
+            if not croniter.is_valid(cron_expr):
+                return web.json_response({"ok": False, "error": f"invalid cron expression: {cron_expr!r}"}, status=400)
+        except ImportError:
+            return web.json_response({"ok": False, "error": "croniter not installed"}, status=500)
 
-    return web.json_response({"ok": True, "timer_id": timer_id, "delay_seconds": delay})
+        timer_id = await event_bus.schedule_cron(
+            cron_expr=cron_expr,
+            session_key=session_key,
+            payload={"message": message},
+            label=label,
+            intent=intent,
+        )
+        audit("timer.created", session_key=session_key,
+              cron_expr=cron_expr, message=message[:200], timer_id=timer_id)
+        return web.json_response({"ok": True, "timer_id": timer_id, "cron_expr": cron_expr})
+    else:
+        # One-shot timer
+        if not delay or not isinstance(delay, (int, float)) or delay <= 0:
+            return web.json_response({"ok": False, "error": "delay_seconds must be > 0 (or provide cron_expr)"}, status=400)
+
+        timer_id = await event_bus.schedule_timer(
+            delay_seconds=float(delay),
+            session_key=session_key,
+            payload={"message": message},
+            intent=intent,
+        )
+        audit("timer.created", session_key=session_key,
+              delay_seconds=delay, message=message[:200], timer_id=timer_id)
+        return web.json_response({"ok": True, "timer_id": timer_id, "delay_seconds": delay})
 
 
 async def _api_list_timers(request: web.Request) -> web.Response:
@@ -564,12 +813,17 @@ async def _async_main() -> None:
     )
 
     event_bus.subscribe("timer.fired", _on_timer_fired)
+    await event_bus.restore_timers()
 
     tg_app = ApplicationBuilder().token(BOT_TOKEN).build()
     tg_app.add_handler(CommandHandler("start", cmd_start))
+    tg_app.add_handler(CommandHandler("help", cmd_help))
+    tg_app.add_handler(CommandHandler("clear", cmd_clear))
+    tg_app.add_handler(CommandHandler("timers", cmd_timers))
     tg_app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     tg_app.add_handler(MessageHandler(filters.VIDEO | filters.VIDEO_NOTE, handle_video))
     tg_app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, handle_voice))
+    tg_app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
     tg_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
     api_app = _create_api_app()

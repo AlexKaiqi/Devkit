@@ -1,0 +1,117 @@
+{
+  "id": "reminder-semantic-001",
+  "title": "语义感知的农历/节日提醒系统",
+  "capability": "notification",
+  "category": "core",
+  "channel": "fengling",
+  "scenarios": [
+    {
+      "id": "reminder-semantic-001-a",
+      "title": "用户请求节日前一天提醒",
+      "scenario": "用户说"中秋节前一天提醒我"，系统应创建一条 holiday intent 的日历提醒，在当年/次年中秋节（农历八月十五）前一天 09:00 触发。",
+      "input": {
+        "user_message": "中秋节前一天提醒我准备礼物",
+        "attachments": []
+      },
+      "context": {
+        "preconditions": [
+          "remind 工具已加载",
+          "当前年份中秋节尚未到来或已过去（系统选择下一次）"
+        ]
+      },
+      "expected": {
+        "must": [
+          "调用 remind 工具并传入 holiday='中秋节' 参数",
+          "advance_days=1（提前一天）",
+          "返回确认消息，包含下次触发日期（公历）",
+          "calendar_reminders.json 中新增一条 type=holiday 的条目"
+        ],
+        "must_not": [
+          "使用 delay 或 cron 参数来处理农历节日",
+          "告知用户无法处理农历提醒"
+        ]
+      },
+      "evidence": {
+        "required": ["assistant_response", "calendar_reminders_json_entry"]
+      },
+      "evaluation": {
+        "mode": "hybrid",
+        "deterministic_checks": ["calendar_reminders_file_updated"],
+        "llm_judge": {
+          "rubric": "tool_usage_correctness_v1",
+          "min_score": 4
+        }
+      }
+    },
+    {
+      "id": "reminder-semantic-001-b",
+      "title": "用户请求农历生日提醒",
+      "scenario": "用户说"妈妈农历三月初八生日，提前一天提醒我"，系统创建 lunar_date intent 的日历提醒，每年在该农历日期对应公历日前一天 09:00 触发。",
+      "input": {
+        "user_message": "帮我记一下，妈妈农历三月初八生日，提前一天提醒我",
+        "attachments": []
+      },
+      "context": {
+        "preconditions": [
+          "remind 工具已加载"
+        ]
+      },
+      "expected": {
+        "must": [
+          "调用 remind 工具并传入 lunar='3-8' 参数",
+          "advance_days=1",
+          "返回确认消息，包含下次触发的公历日期",
+          "calendar_reminders.json 中新增一条 type=lunar_date 的条目"
+        ],
+        "must_not": [
+          "使用固定公历日期（如 3月8日）处理农历日期",
+          "告知用户无法处理农历日期"
+        ]
+      },
+      "evidence": {
+        "required": ["assistant_response", "calendar_reminders_json_entry"]
+      },
+      "evaluation": {
+        "mode": "hybrid",
+        "deterministic_checks": ["calendar_reminders_file_updated"],
+        "llm_judge": {
+          "rubric": "tool_usage_correctness_v1",
+          "min_score": 4
+        }
+      }
+    },
+    {
+      "id": "reminder-semantic-001-c",
+      "title": "ops.html 提醒队列展示语义意图",
+      "scenario": "ops.html 的提醒队列面板能清晰区分 once/recurring/holiday/lunar_date 四类提醒，并展示语义标签而非裸 cron 表达式或无意义 ID。",
+      "input": {
+        "preconditions": [
+          "系统中同时存在：一次性提醒、周期提醒（cron）、节日提醒（holiday）、农历提醒（lunar_date）"
+        ]
+      },
+      "expected": {
+        "must": [
+          "一次性提醒显示 ⏱ 一次性 标签",
+          "周期提醒显示 🔄 周期 + cron label",
+          "节日提醒显示 🏮 节日名称（如 中秋节）+ 提前天数",
+          "农历提醒显示 🌙 农历月/日 + 提前天数",
+          "calendar_reminders 子区域列出日历类提醒，每条有取消按钮"
+        ],
+        "must_not": [
+          "在日历类提醒中显示裸 cron 表达式",
+          "日历提醒与普通 timer 混为一体无区分"
+        ]
+      },
+      "evidence": {
+        "required": ["ops_html_screenshot_or_dom"]
+      },
+      "evaluation": {
+        "mode": "deterministic",
+        "deterministic_checks": [
+          "ops_timers_panel_has_intent_column",
+          "calendar_reminders_section_visible"
+        ]
+      }
+    }
+  ]
+}

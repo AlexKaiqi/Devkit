@@ -26,6 +26,7 @@ if not _PERSONA_DIR.is_absolute():
         },
         "required": ["content"],
     },
+    action_only=True,
 )
 async def handle(args: dict, ctx) -> str:
     content = args["content"].strip()

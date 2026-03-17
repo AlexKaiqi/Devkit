@@ -1,158 +1,81 @@
 # REFERENCE.md - 命令模板与数据格式
 
-> AGENTS.md 中引用的 bash 命令模板、JSON schema、日志格式。
-> 原则和工作流见 [AGENTS.md](AGENTS.md)，本文件只放"怎么写"。
+> AGENTS.md 中引用的命令模板和数据格式参考。
+> 原则和工作流见 [AGENTS.md](AGENTS.md)。
 
 ---
 
-## 延时任务模板（事件驱动）
+## 延时提醒（Action Tag）
 
-### 定时通知 → timer.sh（推荐，最简单）
+对话中直接嵌入，系统后台执行，无需等待：
 
-```bash
-bash command:"./implementation/ops/scripts/timer.sh 秒数 '到期后要说的话'"
+```
+[ACTION:remind delay="YYYY-MM-DD HH:MM" message="提醒内容"]
+[ACTION:remind delay="5m" message="5分钟后提醒"]
 ```
 
-示例：
-```bash
-bash command:"./implementation/ops/scripts/timer.sh 60 '主人，1分钟到了'"
-bash command:"./implementation/ops/scripts/timer.sh 300 '主人，该开会了'"
-```
+delay 支持：
+- 相对时间：`5m`、`2h`、`1d`、`1h30m`
+- 绝对时间：`YYYY-MM-DD HH:MM`（CST）
 
-### 定时通知 → Timer API（高级用法）
+---
+
+## Timer API（高级用法）
+
+通过 HTTP 创建/查询/取消定时器：
 
 ```bash
-bash command:"curl -s -X POST http://localhost:8789/api/timer \
+# 创建
+curl -s -X POST http://localhost:8789/api/timer \
   -H 'Content-Type: application/json' \
-  -d '{\"delay_seconds\": 20, \"message\": \"Hello！20 秒到啦~\"}'"
+  -d '{"delay_seconds": 300, "message": "5分钟到了"}'
+
+# 查询
+curl http://localhost:8789/api/timers
+
+# 取消
+curl -X DELETE http://localhost:8789/api/timer/{timer_id}
 ```
 
-- `session_key` 可省略，系统自动使用最近活跃的会话
-- 事件驱动：Timer API 创建 asyncio 定时器，到期后自动投递到绑定会话或已配置的外部通知渠道
-- 不阻塞当前 turn，Agent 立即回复确认
-- 支持查询和取消：`GET /api/timers`、`DELETE /api/timer/{id}`
+- `session_key` 可省略，自动使用最近活跃会话
+- 触发后双渠道投递：Telegram + Web Push
 
-**⚠️ 禁止使用 `sleep` 或旧的外部 cron 流程模拟延时任务。**
-
-### 超时哨兵 → Timer API + notify.sh
-
-```bash
-bash command:"curl -s -X POST http://localhost:8789/api/timer \
-  -H 'Content-Type: application/json' \
-  -d '{\"delay_seconds\": SECONDS, \"session_key\": \"SESSION_KEY\", \"message\": \"⏰ 后台任务「NAME」预计已完成，请检查结果。\"}'"
-```
-
-### 回退方案（Timer API 不可用时）
-
-```bash
-bash background:true command:"sleep 20 && /Users/kaiqidong/Devkit/implementation/ops/scripts/notify.sh 'Hello！20 秒到啦~'"
-```
+**⚠️ 禁止使用 `sleep` 命令模拟延时任务。**
 
 ---
 
-## 后台任务派发模板
+## 即时通知
 
-### 步骤 1：后台派发（prompt 末尾追加完成通知）
+```
+[ACTION:notify message="通知内容"]
+```
 
+或直接调用脚本：
 ```bash
-bash pty:true workdir:<项目路径> background:true command:"cursor agent -p '<开发指令>' --trust"
+./implementation/ops/scripts/notify.sh "消息内容"
 ```
-
-返回 `sessionId`，记为 XXX。
-
-### 步骤 2：注册到任务表
-
-用 file 工具在 `.tasks/active.json` 中追加任务条目（格式见下方）。
-
-### 步骤 3：创建超时哨兵（Timer API）
-
-```bash
-bash command:"curl -s -X POST http://localhost:8789/api/timer \
-  -H 'Content-Type: application/json' \
-  -d '{\"delay_seconds\": EXPECTED_SECONDS, \"session_key\": \"SESSION_KEY\", \"message\": \"⏰ 后台任务「TASK_NAME」预计已完成，请检查结果。\"}'"
-```
-
-### 步骤 4：告知用户
-
----
-
-## Cursor Agent 调用模板
-
-基础调用：
-
-```bash
-bash pty:true workdir:<项目路径> command:"cursor agent -p '<具体开发指令>' --trust"
-```
-
-指定模型：
-
-```bash
-bash pty:true workdir:<项目路径> command:"cursor agent -p '<指令>' --trust --model sonnet-4.6"
-```
-
-项目路径从 `USER.md` 的"管理的项目"表格中查找。默认大本营：`/Users/kaiqidong/Devkit`
-
----
-
-## .tasks/active.json 格式
-
-```json
-[
-  {
-    "id": "auth-refactor",
-    "type": "cursor",
-    "processSessionId": "abc123",
-    "guardCron": "guard-auth-refactor",
-    "startedAt": "2026-03-05T14:30:00Z",
-    "expectedMinutes": 10,
-    "description": "重构 auth 模块",
-    "project": "/Users/kaiqidong/SomeProject"
-  }
-]
-```
-
-空列表 `[]` 表示无活跃任务。文件不存在时视为空列表。
 
 ---
 
 ## 审计日志格式
 
-每次 Cursor 调用记录到项目仓库内 `.audit/` 目录：
-
-文件名: `YYYY-MM-DD_HH-MM_<简述>.md`
-
-```markdown
-# <任务简述>
-- 时间：<ISO 时间>
-- 触发原因：<为什么>
-
-## 发给 Cursor 的指令
-<完整 prompt>
-
-## Cursor 输出摘要
-<关键输出>
-
-## 变更文件
-<列表>
-
-## 结果判断
-<通过/不通过，后续动作>
-```
+每次 chat 自动写入 `implementation/data/voice-audit/YYYY-MM-DD.jsonl`，字段：
+- `ts`：ISO 时间戳（CST）
+- `event`：`chat` / `stt` / `tts` / `timer.created` / `timer.fired`
+- `session`、`user`、`assistant`、`ms` 等
 
 ---
 
-## 三层保障唤醒对照表
+## 服务健康检查
 
-| 层级 | 触发方式 | 时机 | session |
-|---|---|---|---|
-| L1 直接通知 | Cursor 完成 → `notify.sh` | 即时 | 主 session |
-| L2 超时哨兵 | Timer API (`POST /api/timer`) 事件驱动 | 延迟 | 绑定 session |
-| L3 巡检兜底 | heartbeat 周期性检查 | 定期 | isolated |
+```bash
+./check.sh
+./check.sh --json
+```
 
-### 完成处理流程（无论哪层触发）
-
-1. `process action:log sessionId:XXX` — 读取完整输出
-2. 验证结果是否符合预期
-3. 更新 `.tasks/active.json` — 移除该任务
-4. 汇报用户（通过 Timer API 或 `implementation/ops/scripts/notify.sh` 发送外部通知）
-6. 记录到 `.audit/`
+| 服务 | 地址 |
+|------|------|
+| 风铃 | http://localhost:3001 |
+| STT 代理 | http://localhost:8787/health |
+| Timer API | http://localhost:8789/health |
+| SearXNG | http://localhost:8080 |

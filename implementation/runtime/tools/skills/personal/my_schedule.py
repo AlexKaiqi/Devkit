@@ -46,6 +46,30 @@ def _save(events: list[dict]) -> None:
     )
 
 
+# ── 冲突检测 ─────────────────────────────────────────────────
+
+def _check_conflicts(target_dt: datetime, exclude_id: str | None = None, window_min: int = 30) -> list[dict]:
+    """Return schedule events within ±window_min minutes of target_dt, excluding exclude_id."""
+    result = []
+    for e in _load():
+        if exclude_id and e.get("id") == exclude_id:
+            continue
+        event_dt = _parse_dt(e.get("datetime", ""))
+        if event_dt and abs((event_dt - target_dt).total_seconds()) <= window_min * 60:
+            result.append(e)
+    return result
+
+
+def _conflict_warning(conflicts: list[dict]) -> str:
+    """Format conflict list as warning string (empty string if no conflicts)."""
+    if not conflicts:
+        return ""
+    lines = ["⚠️ 附近有日程安排："]
+    for e in conflicts:
+        lines.append(f"  · {e.get('datetime', '?')} {e.get('title', '?')}（id={e.get('id', '?')}）")
+    return "\n" + "\n".join(lines)
+
+
 # ── 工具 ─────────────────────────────────────────────────────
 
 @tool(
@@ -119,7 +143,10 @@ async def handle(args: dict, ctx) -> str:
         _save(events)
 
         weekday_cn = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"][dt.weekday()]
-        return f"已记录：{dt_str} ({weekday_cn}) {title}（id={event['id']}）"
+        result_msg = f"已记录：{dt_str} ({weekday_cn}) {title}（id={event['id']}）"
+        conflicts = _check_conflicts(dt, exclude_id=event["id"], window_min=30)
+        result_msg += _conflict_warning(conflicts)
+        return result_msg
 
     elif action == "list":
         events = _load()

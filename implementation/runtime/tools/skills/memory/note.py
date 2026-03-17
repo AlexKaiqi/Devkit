@@ -32,6 +32,7 @@ def _memory_dir() -> Path:
         },
         "required": ["content"],
     },
+    action_only=True,
 )
 async def handle(args: dict, ctx) -> str:
     content = args["content"].strip()

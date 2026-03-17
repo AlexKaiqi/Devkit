@@ -66,6 +66,17 @@ else
   echo "  - Docker 未安装或未运行，跳过 Neo4j"
 fi
 
+PROXY_PORT="${CLAUDE_CODE_PROXY_PORT:-9999}"
+if is_port_in_use "$PROXY_PORT"; then
+  echo "  ✓ Claude Code Proxy 已在运行 (:$PROXY_PORT)"
+else
+  echo "  启动 Claude Code Proxy..."
+  CLAUDE_CODE_PROXY_PORT="$PROXY_PORT" \
+  LLM_API_KEY="$LLM_API_KEY" \
+  nohup "$PYTHON_BIN" "$REPO_ROOT/implementation/services/openrouter-proxy/proxy.py" > /tmp/claude-proxy.log 2>&1 &
+  wait_for_port "$PROXY_PORT" "Claude Code Proxy" 5
+fi
+
 if is_port_in_use "$STT_PORT"; then
   echo "  ✓ 豆包 STT 代理已在运行 (:$STT_PORT)"
 else
@@ -87,6 +98,7 @@ else
   WORKSPACE_DIR="$WORKSPACE_DIR_VALUE" \
   DEVKIT_DIR="$REPO_ROOT" \
   VOICE_CHAT_PORT="$VOICE_PORT" \
+  CLAUDE_CODE_PROXY_PORT="$PROXY_PORT" \
   NEO4J_URI="bolt://localhost:$NEO4J_BOLT_PORT" \
   NEO4J_PASSWORD="${NEO4J_PASSWORD:-devkit2026}" \
   nohup "$PYTHON_BIN" "$REPO_ROOT/implementation/channels/fengling/server.py" > /tmp/voice-chat.log 2>&1 &
@@ -149,6 +161,7 @@ EOF
 echo ""
 echo "=== 所有服务已启动 ==="
 echo ""
+echo "  Proxy:     http://localhost:$PROXY_PORT (Claude Code)"
 echo "  SearXNG:   http://localhost:$SEARXNG_PORT"
 echo "  Neo4j:     http://localhost:$NEO4J_HTTP_PORT (bolt://localhost:$NEO4J_BOLT_PORT)"
 echo "  豆包 STT:  http://localhost:$STT_PORT/health"
@@ -163,6 +176,7 @@ if [ -n "${TUNNEL_URL:-}" ]; then
 fi
 echo ""
 echo "  日志:"
+echo "    tail -f /tmp/claude-proxy.log"
 echo "    tail -f /tmp/doubao-stt-proxy.log"
 echo "    tail -f /tmp/voice-chat.log"
 echo "    tail -f /tmp/telegram-bot.log"

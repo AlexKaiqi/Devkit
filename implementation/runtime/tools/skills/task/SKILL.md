@@ -1,7 +1,7 @@
 ---
 name: task
 always: false
-keywords: [任务, task, 计划, 项目, 创建任务, 完成任务, 分解, subtask, 子任务, 进度, 状态, 待办, todo, 执行, 追踪]
+keywords: [任务, task, 计划, 项目, 创建任务, 完成任务, 分解, subtask, 子任务, 进度, 状态, 待办, todo, 执行, 追踪, 做好了吗, 做完了吗, 还在做, 结果怎么样, 怎么样了, 做到哪了, 有没有完成, 任务完成, 帮我查一下]
 ---
 # Task Skill
 

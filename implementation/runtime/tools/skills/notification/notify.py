@@ -28,6 +28,7 @@ _VOICE_CHAT_PORT = int(os.environ.get("VOICE_CHAT_PORT", "3001"))
         },
         "required": ["message"],
     },
+    action_only=True,
 )
 async def handle(args: dict, ctx) -> str:
     message = args.get("message", "").strip()
@@ -75,7 +76,7 @@ async def _send_telegram(message: str, urgent: bool) -> str:
         out, _ = await asyncio.wait_for(proc.communicate(), timeout=15)
         result = out.decode(errors="replace").strip()
         if proc.returncode == 0:
-            return f"通知已发送: {message[:60]}{'...' if len(message) > 60 else ''}"
+            return f"通知已发送: {message[:80]}{'...' if len(message) > 80 else ''}"
         return f"[error] notify: {result}"
     except Exception as e:
         return f"[error] notify: {e}"

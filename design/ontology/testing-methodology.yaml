@@ -1,0 +1,186 @@
+# design/ontology/testing-methodology.yaml
+# 测试方法论本体：每种 ChangeType 的强制测试策略
+
+classes:
+  TestingApproach:
+    instances:
+      - unit_isolation       # 单元隔离：mock 所有依赖，只测本单元
+      - integration_contract # 集成契约：真实依赖，验证接口契约
+      - e2e_scenario         # 端到端：从触发到响应完整链路
+      - regression_guard     # 回归守卫：确保变更不破坏已有行为
+      - property_based       # 属性测试：随机输入验证不变量
+      - adversarial_boundary # 对抗边界：空值/越界/注入攻击
+
+  ImplementationSubPhases:
+    description: "implementation 阶段内的细化步骤（非 Phase 枚举，用于引导执行顺序）"
+    instances:
+      - change_point_analysis  # 列出所有受影响的代码单元 → change-points.json
+      - test_design            # 依据变更点设计测试用例
+      - code_implementation    # 编写功能代码（RED 已就绪）
+      - test_verification      # 运行测试确认通过（GREEN）
+
+testing_strategies:
+  new_capability:
+    description: "新能力：需覆盖正常路径 + 边界 + 集成"
+    required_approaches:
+      - unit_isolation
+      - integration_contract
+      - e2e_scenario
+    optional_approaches:
+      - property_based
+      - adversarial_boundary
+    ordered_steps:
+      - step: "1. 列出变更点"
+        action: "在 requirements/methodology/{feature_id}/change-points.json 中列出所有新增/修改的函数、类、API"
+        gate: change_points_analyzed
+        is_hard_block: true
+        note: "每个变更点需标注: file_path, scope, reason, test_file, is_independent"
+      - step: "2. 独立性分析"
+        action: "对每个变更点判断 is_independent：能否 mock 依赖单独测试？标记后填入 test_file 路径"
+        note: "独立的变更点 → unit_isolation；有依赖的 → integration_contract"
+      - step: "3. 设计验收场景对应测试"
+        action: "为每个验收场景（requirements/acceptance/）设计至少一个 e2e_scenario 测试"
+        note: "测试文件命名: test_{feature_id}.py"
+      - step: "4. TDD: 先写 RED 测试"
+        action: "运行测试确认失败后，再写实现代码"
+        is_hard_block: false
+        note: "不允许先写实现再补测试"
+      - step: "5. 通过所有测试"
+        action: "pytest implementation/tests/unit/ -q，0 failure"
+        gate: existing_tests_pass
+        is_hard_block: true
+    change_point_requirements:
+      file: "requirements/methodology/{feature_id}/change-points.json"
+      mandatory_fields:
+        - file_path
+        - scope
+        - reason
+        - test_file
+        - is_independent
+    coverage_mandate:
+      min_percent: 80
+
+  behavior_change:
+    description: "行为变更：验证旧行为被正确替换，不引入回归"
+    required_approaches:
+      - regression_guard
+      - unit_isolation
+      - integration_contract
+    ordered_steps:
+      - step: "1. 列出变更点"
+        action: "change-points.json 列出所有 changed/removed 的函数/API"
+        gate: change_points_analyzed
+        is_hard_block: true
+      - step: "2. 找到现有测试"
+        action: "确认现有哪些测试覆盖了将要改变的行为"
+        note: "列入 change-points.json 的 existing_tests 字段"
+      - step: "3. 先跑现有测试（RED 检查）"
+        action: "确认现有测试还是绿的，再改代码"
+      - step: "4. 更新或新增测试"
+        action: "同步更新 requirements/acceptance/ 中更新的验收场景对应的测试"
+      - step: "5. 全量回归"
+        gate: existing_tests_pass
+        action: "确认 0 regression"
+        is_hard_block: true
+    change_point_requirements:
+      file: "requirements/methodology/{feature_id}/change-points.json"
+      mandatory_fields:
+        - file_path
+        - scope
+        - reason
+        - existing_tests
+    coverage_mandate:
+      min_percent: 75
+
+  bug_fix:
+    description: "Bug 修复：先写失败的回归测试，再修复"
+    required_approaches:
+      - regression_guard
+      - unit_isolation
+    ordered_steps:
+      - step: "1. 最小复现"
+        action: "写一个最小化的失败测试，确认能复现 bug"
+        is_hard_block: true
+        note: "该测试将成为回归用例"
+      - step: "2. 修复代码"
+        action: "只改必要代码，不扩大范围"
+      - step: "3. 确认测试通过"
+        gate: existing_tests_pass
+        action: "复现测试变绿"
+        is_hard_block: true
+      - step: "4. 沉淀回归用例"
+        action: "将复现测试移入 requirements/acceptance/regressions/"
+        gate: regression_case_created
+        is_hard_block: false
+    change_point_requirements:
+      file: "requirements/methodology/{feature_id}/change-points.json"
+      mandatory_fields:
+        - file_path
+        - scope
+        - root_cause
+    coverage_mandate:
+      min_percent: 0
+
+  refactoring:
+    description: "重构：不改行为，只改结构。测试必须在重构前全绿，重构后仍全绿"
+    required_approaches:
+      - regression_guard
+    ordered_steps:
+      - step: "1. 确认当前测试全绿"
+        gate: existing_tests_pass
+        action: "重构前跑全量测试，确认基线"
+        is_hard_block: true
+        note: "如果现有测试不绿，先修测试或先 bug_fix，再重构"
+      - step: "2. 列出变更点（结构变更）"
+        action: "change-points.json 标注: 重命名/提取/移动的代码单元"
+        gate: change_points_analyzed
+        is_hard_block: false
+      - step: "3. 增量重构 + 增量运行测试"
+        action: "每次只改一个模块，立即跑测试"
+        note: "使用 characterization tests 固定行为快照"
+      - step: "4. 重构后全量回归"
+        gate: existing_tests_pass
+        action: "确认 0 regression"
+        is_hard_block: true
+    change_point_requirements:
+      file: "requirements/methodology/{feature_id}/change-points.json"
+      mandatory_fields:
+        - file_path
+        - scope
+        - refactor_type
+    coverage_mandate:
+      min_percent: 0
+
+  doc_revision:
+    description: "文档修订：无需功能测试，但需审查链接和格式"
+    required_approaches: []
+    ordered_steps:
+      - step: "1. 确认无代码改动"
+        action: "文档修订不应包含代码变更"
+    change_point_requirements:
+      file: null
+    coverage_mandate:
+      min_percent: 0
+
+  eval_asset:
+    description: "评测资产：需验证评测脚本能运行且产出正确格式"
+    required_approaches:
+      - unit_isolation
+    ordered_steps:
+      - step: "1. 定义评测 rubric"
+        action: "design/evaluation/{feature_id}.md 或 .yaml 须存在"
+        gate: rubric_defined
+        is_hard_block: false
+      - step: "2. 列出变更点"
+        gate: change_points_analyzed
+        action: "change-points.json 列出新增/修改的评测脚本"
+        is_hard_block: false
+      - step: "3. 运行评测脚本"
+        action: "确认能无错执行，输出格式正确"
+    change_point_requirements:
+      file: "requirements/methodology/{feature_id}/change-points.json"
+      mandatory_fields:
+        - file_path
+        - scope
+    coverage_mandate:
+      min_percent: 0

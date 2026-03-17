@@ -19,3 +19,32 @@
 - 代码、命令和长文档不应被朗读，语音/文本分区避免了"把代码念出来"的问题。
 - AI 原生产品不需要用户学习导航路径，对话本身就是最自然的控制面。
 - Agent 已具备 `list_tasks`、`get_task_status`、`exec` 等工具，能力完整覆盖传统 UI 的查看与操作场景。
+
+---
+
+## 决策点：TTS 前文本净化方案（2026-03-15）
+
+### 背景
+
+LLM 输出是 Markdown 格式。TTS 引擎按字面处理文本，会将 `**`、`#`、`-` 等标记符号逐字朗读（如"星号星号你好星号星号"），严重破坏语音体验。
+
+### 候选方案
+
+| 方案 | 原理 | 问题 |
+|------|------|------|
+| 正则链 | 顺序匹配替换 Markdown 模式 | 顺序敏感，规则互扰；嵌套语法（`***加粗斜体***`）处理不稳定；未覆盖的语法直接漏掉 |
+| mistune AST 解析 + 自定义 Renderer | 先解析为完整语法树，再按节点类型渲染为纯文本 | 需引入依赖（mistune，约 50KB） |
+| markdown → HTML → strip tags | 两步转换 | 依赖链长，HTML 实体需额外处理 |
+| 外部库（strip_markdown、mdit_plain） | 封装正则或旧版 AST | 均已停止维护（2022 年停更） |
+
+### 决策
+
+**使用 mistune 3.x + 自定义 `_PlainTextRenderer`**。
+
+- mistune 是活跃维护的 Python Markdown 解析器（2025-12 发布 v3.2.0），无重量级依赖
+- AST 方式天然处理嵌套语法，无顺序敏感问题
+- 自定义 Renderer 完全可控：标题/粗体/斜体/删除线→保留文字，代码块→返回空串（由上层 `parse_response` 提取为 attachment），表格→逐单元格提取文字，链接→只保留 link text
+
+### 实现位置
+
+`implementation/channels/channel_utils.py` — `clean_for_tts(text)` 函数，被 `parse_response()` 调用，同时覆盖风铃和 Telegram 两个渠道。

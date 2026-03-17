@@ -56,6 +56,10 @@ class GraphStore:
                 "CREATE INDEX task_id_idx IF NOT EXISTS FOR (t:Task) ON (t.task_id)",
                 "CREATE INDEX task_session_idx IF NOT EXISTS FOR (t:Task) ON (t.session_key)",
                 "CREATE INDEX task_state_idx IF NOT EXISTS FOR (t:Task) ON (t.state)",
+                # Feature nodes for Methodology Ontology Enforcement
+                "CREATE INDEX feature_id_idx IF NOT EXISTS FOR (f:Feature) ON (f.feature_id)",
+                "CREATE INDEX feature_session_idx IF NOT EXISTS FOR (f:Feature) ON (f.session_key)",
+                "CREATE INDEX feature_status_idx IF NOT EXISTS FOR (f:Feature) ON (f.status)",
             ]:
                 await session.run(cypher)
         log.info("Neo4j indexes ensured")

@@ -68,6 +68,10 @@ All Python commands must use the project-local `.venv/bin/python` (Python 3.12+)
 - **Layer order**: change `requirements/` and `design/` first, then `implementation/`.
 - **New capabilities**: write `requirements/acceptance/` scenarios before writing code.
 - **After every task**: update `implementation/STATUS.md`.
+- **Test after every change**: 实现或修复任何功能后，必须进行完整测试：
+  1. 运行单元测试：`.venv/bin/pytest implementation/tests/unit/ -q`
+  2. 针对该功能做端到端验证（curl、日志核查、或直接调用相关模块）
+  3. 确认无回归后再视为完成
 - **Memory**: important findings go to `implementation/assets/persona/MEMORY.md`; daily logs to `implementation/assets/persona/memory/YYYY-MM-DD.md`.
 - **Language**: documentation and communication in Chinese; technical terms stay in English.
 - **Existing decisions**: follow `design/decisions/README.md` before making new technology choices.

@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>运维 — 风铃</title>
+<script src="/static/marked.min.js"></script>
+<style>
+  :root {
+    --bg: #eef6fb;
+    --surface: rgba(255, 255, 255, 0.82);
+    --surface-alt: #f0f7fb;
+    --border: rgba(53, 165, 216, 0.18);
+    --text: #1e3040;
+    --muted: #6b8fa8;
+    --accent: #35a5d8;
+    --accent-2: #4cc9a0;
+    --green: #28a060;
+    --yellow: #d4900a;
+    --red: #d94040;
+    --blue: #2a7fd4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: linear-gradient(160deg, #d6eef9 0%, #e8f5f0 55%, #eef6fb 100%);
+    background-attachment: fixed;
+    color: var(--text);
+    font: 14px/1.6 "SF Pro Text", system-ui, sans-serif;
+  }
+
+  /* Layout */
+  .layout { display: grid; grid-template-columns: 200px 1fr; min-height: 100vh; }
+  nav {
+    background: rgba(255, 255, 255, 0.78);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-right: 1px solid var(--border);
+    padding: 20px 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    box-shadow: 2px 0 12px rgba(53, 165, 216, 0.07);
+  }
+  nav .logo { padding: 0 20px 20px; font-size: 16px; font-weight: 600; border-bottom: 1px solid var(--border); }
+  nav .logo span { color: var(--accent); }
+  nav ul { list-style: none; margin-top: 8px; }
+  nav li a { display: block; padding: 9px 20px; color: var(--muted); text-decoration: none; border-left: 3px solid transparent; transition: all .15s; }
+  nav li a:hover, nav li a.active { color: var(--text); background: rgba(53,165,216,.08); border-left-color: var(--accent); }
+  main { padding: 24px; overflow-y: auto; }
+
+  /* Header */
+  .page-header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+  .page-header h1 { font-size: 20px; font-weight: 600; }
+  .refresh-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 15px; padding: 4px 6px; border-radius: 6px; transition: color .15s; line-height: 1; }
+  .refresh-btn:hover { color: var(--text); }
+  .last-update { color: var(--muted); font-size: 12px; display: flex; align-items: center; gap: 6px; }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #4caf50; animation: pulse-dot 2s infinite; flex-shrink: 0; }
+  @keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+  /* Section */
+  section { margin-bottom: 28px; }
+  section h2 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 12px; }
+
+  /* Grid */
+  .grid { display: grid; gap: 12px; }
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-4 { grid-template-columns: repeat(4, 1fr); }
+  @media (max-width: 900px) { .grid-4 { grid-template-columns: repeat(2, 1fr); } .grid-3 { grid-template-columns: repeat(2, 1fr); } }
+
+  /* Card */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; backdrop-filter: blur(8px); box-shadow: 0 1px 8px rgba(53,165,216,0.06); }
+  .card-title { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .card-value { font-size: 24px; font-weight: 600; }
+  .card-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  /* Status badge */
+  .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 3px 10px; border-radius: 20px; font-weight: 500; }
+  .badge::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; }
+  .badge-ok { background: rgba(40,160,96,.12); color: var(--green); }
+  .badge-ok::before { background: var(--green); }
+  .badge-down { background: rgba(217,64,64,.12); color: var(--red); }
+  .badge-down::before { background: var(--red); }
+  .badge-warn { background: rgba(212,144,10,.12); color: var(--yellow); }
+  .badge-warn::before { background: var(--yellow); }
+
+  /* Progress bar */
+  .progress { height: 6px; background: rgba(53,165,216,0.15); border-radius: 4px; overflow: hidden; margin-top: 8px; }
+  .progress-fill { height: 100%; border-radius: 4px; transition: width .4s; }
+  .fill-green { background: var(--green); }
+  .fill-yellow { background: var(--yellow); }
+  .fill-red { background: var(--red); }
+
+  /* Service row */
+  .svc-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--surface-alt); border-radius: 8px; margin-bottom: 6px; border: 1px solid var(--border); }
+  .svc-name { font-weight: 500; }
+
+  /* Table */
+  .table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .table th { text-align: left; padding: 8px 12px; color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--border); background: rgba(53,165,216,0.05); }
+  .table td { padding: 9px 12px; border-bottom: 1px solid rgba(53,165,216,.08); vertical-align: top; }
+  .table tr:last-child td { border-bottom: none; }
+  .table tr:hover td { background: rgba(53,165,216,.04); }
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; backdrop-filter: blur(8px); box-shadow: 0 1px 8px rgba(53,165,216,0.06); }
+  .mono { font-family: "JetBrains Mono", "Fira Code", monospace; font-size: 12px; }
+
+  /* Action btn */
+  .btn-del { background: none; border: 1px solid var(--border); color: var(--muted); padding: 3px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: all .15s; }
+  .btn-del:hover { border-color: var(--red); color: var(--red); }
+
+  /* State pills */
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .pill-running { background: rgba(42,127,212,.12); color: var(--blue); }
+  .pill-done { background: rgba(40,160,96,.12); color: var(--green); }
+  .pill-failed, .pill-killed { background: rgba(217,64,64,.12); color: var(--red); }
+  .pill-error { background: rgba(212,144,10,.12); color: var(--yellow); }
+
+  /* Audit */
+  .audit-item { padding: 8px 14px; border-bottom: 1px solid rgba(53,165,216,.08); font-size: 12px; cursor: pointer; }
+  .audit-item:last-child { border-bottom: none; }
+  .audit-item:hover { background: rgba(53,165,216,.04); }
+  .audit-item-row { display: flex; gap: 12px; align-items: baseline; }
+  .audit-ts { color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+  .audit-evt { font-weight: 600; min-width: 9em; flex-shrink: 0; }
+  .audit-evt-chat { color: var(--accent); }
+  .audit-evt-timer { color: #7ec8e3; }
+  .audit-evt-error { color: var(--red); }
+  .audit-evt-stt { color: #a8c97f; }
+  .audit-evt-tts { color: #c8a87f; }
+  .audit-evt-other { color: var(--muted); }
+  .audit-detail { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+  .audit-expand { display: none; margin-top: 8px; padding: 10px 12px; background: var(--surface-alt); border-radius: 6px; border: 1px solid var(--border); white-space: pre-wrap; word-break: break-all; font-family: monospace; font-size: 11px; line-height: 1.6; color: var(--text); }
+  .audit-item.open .audit-expand { display: block; }
+  .audit-kv-key { color: var(--muted); }
+  .audit-toolbar { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .audit-count { color: var(--muted); font-size: 12px; margin-left: auto; }
+
+  /* Trace */
+  .trace-row { cursor: pointer; }
+  .trace-row:hover td { background: rgba(53,165,216,.06) !important; }
+  .trace-detail { background: var(--surface-alt); border-top: 1px solid var(--border); padding: 16px; display: none; }
+  .trace-detail.open { display: block; }
+  .step-list { list-style: none; border-left: 2px solid var(--border); margin-left: 8px; padding-left: 16px; }
+  .step-list li { padding: 6px 0; font-size: 12px; position: relative; }
+  .step-list li::before { content: ''; position: absolute; left: -21px; top: 12px; width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+  .step-llm::before { background: var(--accent) !important; }
+  .step-tool::before { background: var(--blue) !important; }
+  .step-tag { display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: 11px; margin-right: 6px; }
+  .step-tag-llm { background: rgba(53,165,216,.15); color: var(--accent); }
+  .step-tag-tool { background: rgba(42,127,212,.15); color: var(--blue); }
+  .step-args { color: var(--muted); font-family: monospace; font-size: 11px; margin-top: 3px; word-break: break-all; }
+  .step-result { color: var(--text); font-family: monospace; font-size: 11px; margin-top: 3px; background: rgba(53,165,216,.06); border: 1px solid var(--border); padding: 6px 8px; border-radius: 4px; max-height: 120px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+
+  /* Product */
+  .skill-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .skill-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; box-shadow: 0 1px 6px rgba(53,165,216,0.05); }
+  .skill-card.always-on { border-color: rgba(53,165,216,.4); }
+  .skill-name { font-weight: 600; font-size: 14px; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+  .skill-always { font-size: 10px; background: rgba(53,165,216,.15); color: var(--accent); padding: 1px 6px; border-radius: 3px; }
+  .skill-desc { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .skill-keywords { display: flex; flex-wrap: wrap; gap: 4px; }
+  .kw { font-size: 11px; background: rgba(42,127,212,.10); color: var(--blue); padding: 2px 7px; border-radius: 4px; }
+  .progress-item { display: flex; gap: 8px; padding: 5px 0; font-size: 13px; border-bottom: 1px solid rgba(53,165,216,.08); }
+  .progress-item:last-child { border-bottom: none; }
+  .product-section { margin-bottom: 28px; }
+  .product-section h2 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 12px; }
+  .focus-item { padding: 6px 14px; border-left: 3px solid var(--accent); margin-bottom: 6px; font-size: 13px; background: rgba(53,165,216,.06); border-radius: 0 6px 6px 0; }
+  .caps-body { font-size: 13px; line-height: 1.7; }
+  .caps-body h2 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin: 20px 0 10px; }
+  .caps-body h2:first-child { margin-top: 0; }
+  .caps-body table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 16px; }
+  .caps-body th { text-align: left; padding: 8px 12px; color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--border); font-size: 12px; background: rgba(53,165,216,0.05); }
+  .caps-body td { padding: 8px 12px; border-bottom: 1px solid rgba(53,165,216,.08); font-size: 12px; color: var(--text); vertical-align: top; }
+  .caps-body tr:last-child td { border-bottom: none; }
+  .caps-body tr:hover td { background: rgba(53,165,216,.04); }
+  .caps-body a { color: var(--accent); text-decoration: none; }
+  .caps-body p { color: var(--muted); margin-bottom: 10px; }
+  .caps-body ul { padding-left: 18px; margin-bottom: 10px; }
+  .caps-body li { color: var(--muted); margin-bottom: 3px; font-size: 12px; }
+
+  /* Task tree (融合自 tasks.css) */
+  .task-tree-wrap { --indent: 22px; }
+  .task-tree-wrap .tree-node { position: relative; }
+  .task-tree-wrap .tree-children { margin-left: var(--indent); border-left: 1px solid var(--border); overflow: hidden; }
+  .task-tree-wrap .tree-children.collapsed { max-height: 0; opacity: 0; pointer-events: none; }
+  .task-tree-wrap .tree-children:not(.collapsed) { max-height: 100000px; opacity: 1; transition: opacity .2s; }
+  .task-tree-wrap .task-row { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 6px; cursor: pointer; user-select: none; min-height: 34px; transition: background .15s; }
+  .task-tree-wrap .task-row:hover { background: rgba(53,165,216,.06); }
+  .task-tree-wrap .task-row.focus { border-left: 3px solid var(--accent); padding-left: 7px; }
+  .task-tree-wrap .toggle-arrow { width: 16px; font-size: 11px; color: var(--muted); flex-shrink: 0; transition: transform .2s; }
+  .task-tree-wrap .toggle-arrow.expanded { transform: rotate(90deg); }
+  .task-tree-wrap .toggle-arrow.placeholder { visibility: hidden; }
+  .task-tree-wrap .status-icon { flex-shrink: 0; font-size: 13px; width: 16px; text-align: center; }
+  .task-tree-wrap .status-icon.running { color: #2a7fd4; animation: pulse 2s ease-in-out infinite; }
+  .task-tree-wrap .status-icon.completed { color: #28a060; }
+  .task-tree-wrap .status-icon.failed { color: #d94040; }
+  .task-tree-wrap .status-icon.waiting { color: #d4900a; }
+  .task-tree-wrap .status-icon.queued { color: #6b8fa8; }
+  .task-tree-wrap .status-icon.cancelled { color: #9ab0be; }
+  .task-tree-wrap .task-title { flex: 1; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .task-tree-wrap .state-badge { padding: 1px 7px; border-radius: 4px; font-size: 11px; font-weight: 500; flex-shrink: 0; }
+  .task-tree-wrap .state-badge.running { background: rgba(42,127,212,.12); color: #2a7fd4; }
+  .task-tree-wrap .state-badge.completed { background: rgba(40,160,96,.12); color: #28a060; }
+  .task-tree-wrap .state-badge.failed { background: rgba(217,64,64,.12); color: #d94040; }
+  .task-tree-wrap .state-badge.waiting { background: rgba(212,144,10,.12); color: #d4900a; }
+  .task-tree-wrap .state-badge.queued { background: rgba(107,143,168,.12); color: #6b8fa8; }
+  .task-tree-wrap .state-badge.cancelled { background: rgba(154,176,190,.12); color: #9ab0be; }
+  .task-tree-wrap .progress-counter,.task-tree-wrap .focus-tag { font-size: 11px; color: var(--muted); flex-shrink: 0; }
+  .task-tree-wrap .focus-tag { color: var(--accent); }
+  .task-tree-wrap .task-detail { overflow: hidden; max-height: 0; opacity: 0; transition: max-height .3s, opacity .2s; margin-left: 44px; border-left: 2px solid var(--border); }
+  .task-tree-wrap .task-detail.open { max-height: 2000px; opacity: 1; padding: 8px 4px 12px 12px; }
+  .task-tree-wrap .detail-field { font-size: 12px; line-height: 1.6; color: var(--muted); margin-bottom: 8px; }
+  .task-tree-wrap .detail-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 2px; }
+  .task-tree-wrap .detail-value { color: var(--text); }
+  .task-tree-wrap .detail-field.error .detail-value { color: #d94040; }
+  .task-tree-wrap .detail-actions { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+  .task-tree-wrap .detail-actions button { padding: 3px 10px; border-radius: 4px; border: 1px solid var(--border); background: rgba(255,255,255,0.7); color: var(--text); cursor: pointer; font-size: 11px; }
+  .task-tree-wrap .detail-actions button:hover { background: rgba(53,165,216,.08); border-color: var(--accent); }
+  .task-tree-wrap .detail-actions button.danger { border-color: #d94040; color: #d94040; }
+  .task-tree-wrap .markdown-body { font-size: 12px; line-height: 1.6; }
+  .task-tree-wrap .markdown-body p { margin: 0 0 6px; }
+  .task-tree-wrap .markdown-body code { font-family: monospace; font-size: 11px; padding: 1px 4px; background: rgba(53,165,216,.08); border-radius: 3px; }
+  .task-legend { display: flex; gap: 14px; flex-wrap: wrap; padding: 10px 0; margin-bottom: 12px; font-size: 12px; color: var(--muted); }
+  .task-legend-item { display: flex; align-items: center; gap: 4px; }
+  .task-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.45; } }
+
+  /* Memory */
+  .mem-section { margin-bottom: 20px; }
+  .mem-section-title { font-size: 13px; font-weight: 600; color: var(--accent); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .mem-item { padding: 6px 12px; border-left: 2px solid var(--border); margin-bottom: 4px; font-size: 13px; line-height: 1.5; color: var(--text); transition: border-color .15s; }
+  .mem-item:hover { border-left-color: var(--accent); }
+  .mem-date { font-size: 11px; color: var(--muted); font-family: monospace; margin-right: 6px; }
+  .daily-log { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; box-shadow: 0 1px 6px rgba(53,165,216,0.05); }
+  .daily-log-date { font-size: 12px; color: var(--muted); font-weight: 600; margin-bottom: 8px; }
+  .daily-log-content { font-size: 13px; white-space: pre-wrap; line-height: 1.6; color: var(--text); }
+
+  /* Empty */
+  .empty { text-align: center; color: var(--muted); padding: 28px; font-size: 13px; }
+
+  /* Section nav panel */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* Spinner */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinning { animation: spin .8s linear infinite; display: inline-block; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav>
+    <div class="logo">🎐 <span>风铃</span> 运维</div>
+    <ul>
+      <li><a href="#" data-panel="overview" class="active">📊 概览</a></li>
+      <li><a href="#" data-panel="services">🔌 服务状态</a></li>
+      <li><a href="#" data-panel="system">💻 系统资源</a></li>
+      <li><a href="#" data-panel="timers">⏰ 提醒</a></li>
+      <li><a href="#" data-panel="watchlist">👁 关注列表</a></li>
+      <li><a href="#" data-panel="processes">⚙️ 后台进程</a></li>
+      <li><a href="#" data-panel="sessions">💬 会话</a></li>
+      <li><a href="#" data-panel="audit">📋 操作记录</a></li>
+      <li><a href="#" data-panel="traces">🔍 执行详情</a></li>
+      <li><a href="#" data-panel="memory">🧠 记忆</a></li>
+      <li><a href="#" data-panel="product">📦 产品</a></li>
+      <li><a href="#" data-panel="tasks">📋 任务</a></li>
+      <li><a href="#" data-panel="methodology">🏛 开发流程</a></li>
+    </ul>
+  </nav>
+
+  <main>
+    <div class="page-header">
+      <h1 id="panel-title">概览</h1>
+      <span class="last-update" id="last-update"><span class="live-dot"></span><span id="last-update-text">--</span></span>
+      <button class="refresh-btn" id="btn-refresh" title="立即刷新">↻</button>
+    </div>
+
+    <!-- Overview -->
+    <div class="panel active" id="panel-overview">
+      <section>
+        <h2>能力状态</h2>
+        <div class="grid grid-4" id="svc-cards"></div>
+      </section>
+      <section>
+        <h2>系统资源</h2>
+        <div class="grid grid-3" id="sys-cards"></div>
+      </section>
+      <section>
+        <h2>活跃任务概览</h2>
+        <div class="grid grid-4" id="activity-cards"></div>
+      </section>
+    </div>
+
+    <!-- Services -->
+    <div class="panel" id="panel-services">
+      <div class="card">
+        <div id="svc-list"></div>
+      </div>
+    </div>
+
+    <!-- System -->
+    <div class="panel" id="panel-system">
+      <div class="grid grid-3" id="sys-detail"></div>
+    </div>
+
+    <!-- Timers -->
+    <div class="panel" id="panel-timers">
+      <section>
+        <h2>定时提醒</h2>
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>消息</th><th>类型</th><th>触发时间</th><th>剩余</th><th>会话</th><th></th></tr></thead>
+            <tbody id="timers-body"></tbody>
+          </table>
+          <div class="empty hidden" id="timers-empty">当前没有待触发的提醒</div>
+        </div>
+      </section>
+      <section style="margin-top:24px">
+        <h2>日历提醒（农历/节日）</h2>
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>消息</th><th>类型</th><th>下次触发</th><th>上次通知</th><th></th></tr></thead>
+            <tbody id="cal-reminders-body"></tbody>
+          </table>
+          <div class="empty hidden" id="cal-reminders-empty">没有日历类提醒</div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Watchlist -->
+    <div class="panel" id="panel-watchlist">
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>主题</th><th>关键词</th><th>间隔</th><th>上次检查</th><th></th></tr></thead>
+          <tbody id="watchlist-body"></tbody>
+        </table>
+        <div class="empty hidden" id="watchlist-empty">没有关注项</div>
+      </div>
+    </div>
+
+    <!-- Processes -->
+    <div class="panel" id="panel-processes">
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>PID</th><th>标签</th><th>状态</th><th>耗时</th><th>命令</th><th></th></tr></thead>
+          <tbody id="proc-body"></tbody>
+        </table>
+        <div class="empty hidden" id="proc-empty">没有后台进程</div>
+      </div>
+    </div>
+
+    <!-- Sessions -->
+    <div class="panel" id="panel-sessions">
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>会话标识</th><th>消息数</th><th>最后活跃</th><th></th></tr></thead>
+          <tbody id="sessions-body"></tbody>
+        </table>
+        <div class="empty hidden" id="sessions-empty">没有会话记录</div>
+      </div>
+    </div>
+
+    <!-- Audit -->
+    <div class="panel" id="panel-audit">
+      <div class="card" style="padding:0">
+        <div class="audit-toolbar">
+          <select id="audit-date-picker" style="background:var(--surface);color:var(--text);border:1px solid var(--border);padding:5px 10px;border-radius:6px;font-size:13px">
+            <option value="">今日（实时）</option>
+          </select>
+          <span id="audit-count" class="audit-count"></span>
+        </div>
+        <div id="audit-list"></div>
+        <div class="empty hidden" id="audit-empty">暂无操作记录</div>
+      </div>
+    </div>
+
+    <!-- Traces -->
+    <div class="panel" id="panel-traces">
+      <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <select id="traces-date-picker" style="background:var(--surface);color:var(--text);border:1px solid var(--border);padding:5px 10px;border-radius:6px;font-size:13px">          <option value="">今日（实时）</option>
+        </select>
+        <span style="color:var(--muted);font-size:12px" id="traces-hint">点击行展开执行步骤详情</span>
+      </div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>时间</th><th>会话</th><th>用户消息</th><th>状态</th><th>耗时</th><th>步骤</th><th>回复摘要</th></tr></thead>
+          <tbody id="traces-body"></tbody>
+        </table>
+        <div class="empty hidden" id="traces-empty">暂无执行轨迹</div>
+      </div>
+    </div>
+
+    <!-- Memory -->
+    <div class="panel" id="panel-memory">
+      <div style="margin-bottom:14px">
+        <span style="color:var(--muted);font-size:12px">长期记忆和每日日志</span>
+      </div>
+      <div class="grid grid-2" id="memory-sections"></div>
+      <div id="memory-daily" style="margin-top:20px"></div>
+      <div class="empty hidden" id="memory-empty">暂无记忆内容</div>
+    </div>
+
+    <!-- Product -->
+    <div class="panel" id="panel-product">
+      <div style="margin-bottom:14px">
+        <span id="product-model" style="color:var(--muted);font-size:12px"></span>
+      </div>
+
+      <div class="product-section">
+        <h2>当前迭代重点</h2>
+        <div id="product-focus"></div>
+      </div>
+
+      <div class="product-section">
+        <h2>能力地图</h2>
+        <div id="product-capabilities"></div>
+      </div>
+
+      <div class="product-section">
+        <h2>技能</h2>
+        <div class="skill-grid" id="product-skills"></div>
+      </div>
+
+      <div class="product-section">
+        <h2>最近进展</h2>
+        <div class="table-wrap" style="padding:12px 16px">
+          <div id="product-recent"></div>
+        </div>
+      </div>
+
+      <div class="product-section">
+        <h2>产品目标</h2>
+        <div id="product-goals"></div>
+      </div>
+    </div>
+
+    <!-- Tasks -->
+    <div class="panel" id="panel-tasks">
+      <div style="margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <select id="tasks-session-filter" style="background:var(--surface);color:var(--text);border:1px solid var(--border);padding:5px 10px;border-radius:6px;font-size:13px">
+          <option value="">所有会话</option>
+        </select>
+        <span style="color:var(--muted);font-size:12px" id="tasks-neo4j-hint"></span>
+      </div>
+      <div class="task-legend">
+        <span class="task-legend-item"><span class="task-dot" style="background:#42a5f5"></span>进行中</span>
+        <span class="task-legend-item"><span class="task-dot" style="background:#66bb6a"></span>已完成</span>
+        <span class="task-legend-item"><span class="task-dot" style="background:#ef5350"></span>失败</span>
+        <span class="task-legend-item"><span class="task-dot" style="background:#ffb74d"></span>等待中</span>
+        <span class="task-legend-item"><span class="task-dot" style="background:#78909c"></span>排队中</span>
+        <span class="task-legend-item"><span class="task-dot" style="background:#616161"></span>已取消</span>
+      </div>
+      <div class="task-tree-wrap" id="tasks-tree"></div>
+      <div class="empty hidden" id="tasks-empty">暂无任务</div>
+    </div>
+
+    <!-- Methodology -->
+    <div class="panel" id="panel-methodology">
+      <section>
+        <h2>活跃 Feature</h2>
+        <div id="methodology-hint" style="color:var(--muted);font-size:12px;margin-bottom:12px"></div>
+        <div id="methodology-features"></div>
+        <div class="empty hidden" id="methodology-empty">暂无活跃 Feature</div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script>
+let _data = null;
+let _traces = [];
+
+// ── Navigation ────────────────────────────────────────────────
+const TITLES = {
+  overview: '概览', services: '服务状态', system: '系统资源',
+  timers: '提醒', watchlist: '关注列表', processes: '后台进程',
+  sessions: '会话', audit: '操作记录', traces: '执行详情',
+  memory: '记忆', product: '产品', tasks: '任务', methodology: '开发流程',
+};
+
+document.querySelectorAll('nav a').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    document.querySelectorAll('nav a').forEach(x => x.classList.remove('active'));
+    a.classList.add('active');
+    const panel = a.dataset.panel;
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + panel).classList.add('active');
+    document.getElementById('panel-title').textContent = TITLES[panel];
+    if (panel === 'traces') { loadTraceDates(); loadTraces(); return; }
+    if (panel === 'audit') { loadAuditDates(); loadAudit(); return; }
+    if (panel === 'memory') { loadMemory(); return; }
+    if (panel === 'product') { loadProduct(); return; }
+    if (panel === 'tasks') { loadTasksPanel(); return; }
+    if (panel === 'methodology') { loadMethodologyPanel(); return; }
+    if (_data) render(panel, _data);
+  });
+});
+
+// ── Fetch ─────────────────────────────────────────────────────
+async function fetchData() {
+  const btn = document.getElementById('btn-refresh');
+  btn.innerHTML = '<span class="spinning">↻</span> 刷新';
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/ops/status');
+    _data = await r.json();
+    render(activePanel(), _data);
+    document.getElementById('last-update-text').textContent = '更新于 ' + new Date().toLocaleTimeString('zh-CN');
+  } catch(e) {
+    document.getElementById('last-update-text').textContent = '⚠️ 加载失败：' + e.message;
+  } finally {
+    btn.innerHTML = '↻ 刷新';
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('btn-refresh').addEventListener('click', fetchData);
+
+// ── Helpers ───────────────────────────────────────────────────
+function activePanel() {
+  const active = document.querySelector('.panel.active');
+  return active ? active.id.replace('panel-', '') : 'overview';
+}
+
+function badge(status) {
+  const cls = status === 'ok' ? 'badge-ok' : status === 'down' ? 'badge-down' : 'badge-warn';
+  const label = status === 'ok' ? '正常' : status === 'down' ? '离线' : '异常';
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function pill(state) {
+  return `<span class="pill pill-${state}">${state}</span>`;
+}
+
+function humanSeconds(s) {
+  s = Math.round(s);
+  if (s < 0) return '已过期';
+  if (s < 60) return s + 's';
+  if (s < 3600) {
+    const m = Math.floor(s / 60), sec = s % 60;
+    return m + 'm' + (sec ? ' ' + sec + 's' : '');
+  }
+  if (s < 86400) {
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+    return h + 'h' + (m ? ' ' + m + 'm' : '');
+  }
+  const days = Math.floor(s / 86400);
+  if (days < 30) {
+    const h = Math.floor((s % 86400) / 3600);
+    return days + '天' + (h ? h + '小时' : '');
+  }
+  // Very large (e.g. cron with next trigger in months): show approximate date
+  const d = new Date(Date.now() + s * 1000);
+  return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function humanElapsed(s) {
+  s = Math.round(s);
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  return (h ? h + 'h ' : '') + (m ? m + 'm ' : '') + sec + 's';
+}
+
+function progressColor(pct) {
+  return pct > 85 ? 'fill-red' : pct > 60 ? 'fill-yellow' : 'fill-green';
+}
+
+function metricCard(title, value, sub, pct) {
+  const bar = pct != null ? `<div class="progress"><div class="progress-fill ${progressColor(pct)}" style="width:${pct}%"></div></div>` : '';
+  return `<div class="card"><div class="card-title">${title}</div><div class="card-value">${value}</div><div class="card-sub">${sub}</div>${bar}</div>`;
+}
+
+function formatTs(iso) {
+  if (!iso) return '—';
+  try { return new Date(iso * 1000).toLocaleString('zh-CN'); } catch { return iso; }
+}
+
+async function apiDelete(url, onSuccess) {
+  try {
+    const r = await fetch(url, { method: 'DELETE' });
+    const j = await r.json();
+    if (j.ok !== false) { onSuccess(); fetchData(); }
+    else alert('操作失败：' + (j.error || ''));
+  } catch(e) { alert('请求失败：' + e); }
+}
+
+// ── Render ────────────────────────────────────────────────────
+function render(panel, d) {
+  if (panel === 'overview') renderOverview(d);
+  else if (panel === 'services') renderServices(d);
+  else if (panel === 'system') renderSystem(d);
+  else if (panel === 'timers') renderTimers(d);
+  else if (panel === 'watchlist') renderWatchlist(d);
+  else if (panel === 'processes') renderProcesses(d);
+  else if (panel === 'sessions') renderSessions(d);
+  else if (panel === 'audit') renderAudit(d);
+  else if (panel === 'traces') loadTraces();
+  else if (panel === 'memory') loadMemory();
+  else if (panel === 'product') loadProduct();
+  else if (panel === 'tasks') loadTasksPanel();
+}
+
+function renderOverview(d) {
+  // Service cards
+  const svcNames = {
+    fengling: '🎐 核心系统',
+    stt_proxy: '🎤 语音交互',
+    timer_api: '⏰ 定时与通知',
+    'openrouter-proxy': '💻 编码能力'
+  };
+  document.getElementById('svc-cards').innerHTML =
+    Object.entries(svcNames).map(([k, label]) => {
+      const status = d.services?.[k] || 'unknown';
+      return `<div class="card"><div class="card-title">${label}</div><div style="margin-top:4px">${badge(status)}</div></div>`;
+    }).join('');
+
+  // System cards
+  const s = d.system || {};
+  document.getElementById('sys-cards').innerHTML = s.mem_total_gb ? [
+    metricCard('CPU', s.cpu_pct + '%', '使用率', s.cpu_pct),
+    metricCard('内存', s.mem_pct + '%', `${s.mem_used_gb} / ${s.mem_total_gb} GB`, s.mem_pct),
+    metricCard('磁盘', s.disk_pct + '%', `${s.disk_used_gb} / ${s.disk_total_gb} GB`, s.disk_pct),
+  ].join('') : '<div class="card"><div class="empty">系统资源数据暂不可用</div></div>';
+
+  // Activity summary
+  document.getElementById('activity-cards').innerHTML = [
+    metricCard('⏰ 待触发提醒', (d.timers || []).length, '个'),
+    metricCard('🗓 日历提醒', (d.calendar_reminders || []).length, '个'),
+    metricCard('👁 监控订阅', (d.watchlist || []).length, '个'),
+    metricCard('⚙️ 后台进程', (d.processes || []).length, '个'),
+  ].join('');
+}
+
+function renderServices(d) {
+  const svcNames = {
+    fengling: '🎐 核心系统 — 风铃主服务',
+    stt_proxy: '🎤 语音交互 — 语音识别与合成',
+    timer_api: '⏰ 定时与通知 — 提醒服务',
+    'openrouter-proxy': '💻 编码能力 — 模型代理'
+  };
+  document.getElementById('svc-list').innerHTML =
+    Object.entries(svcNames).map(([k, label]) => {
+      const status = d.services?.[k] || 'unknown';
+      return `<div class="svc-row"><span class="svc-name">${label}</span>${badge(status)}</div>`;
+    }).join('') || '<div class="empty">暂无数据</div>';
+}
+
+function renderSystem(d) {
+  const s = d.system || {};
+  if (!s.mem_total_gb) {
+    document.getElementById('sys-detail').innerHTML = '<div class="card"><div class="empty">无法获取系统资源数据，请检查依赖是否安装</div></div>';
+    return;
+  }
+  document.getElementById('sys-detail').innerHTML = [
+    metricCard('CPU 使用率', s.cpu_pct + '%', '实时', s.cpu_pct),
+    metricCard('内存', `${s.mem_pct}%`, `${s.mem_used_gb} / ${s.mem_total_gb} GB`, s.mem_pct),
+    metricCard('磁盘', `${s.disk_pct}%`, `${s.disk_used_gb} / ${s.disk_total_gb} GB`, s.disk_pct),
+  ].join('');
+}
+
+function renderTimers(d) {
+  const timers = d.timers || [];
+  const tbody = document.getElementById('timers-body');
+  const empty = document.getElementById('timers-empty');
+  if (!timers.length) { tbody.innerHTML = ''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  tbody.innerHTML = timers.map(t => {
+    const msg = (t.payload?.message || '').substring(0, 60);
+    const fireAt = t.fire_at ? new Date(t.fire_at * 1000).toLocaleString('zh-CN') : '—';
+    const rem = humanSeconds(t.remaining_seconds || 0);
+    // Build intent cell from intent field (with fallback to legacy type)
+    const intent = t.intent || {};
+    let intentCell;
+    if (intent.type === 'recurring' || t.type === 'cron') {
+      const lbl = intent.human || t.label || t.cron_expr || '';
+      intentCell = `<td><span style="color:#4caf93;font-weight:600">🔄 重复</span><br><span class="mono" style="font-size:11px;color:var(--muted)">${lbl}</span></td>`;
+    } else {
+      intentCell = `<td><span style="color:var(--muted)">⏱ 一次性</span></td>`;
+    }
+    return `<tr>
+      <td>${msg}</td>
+      ${intentCell}
+      <td class="mono">${fireAt}</td>
+      <td>${rem}</td>
+      <td class="mono" style="font-size:11px;color:var(--muted)">${t.session_key || '—'}</td>
+      <td><button class="btn-del" onclick="apiDelete('/api/ops/timers/${t.id}', ()=>{})">取消</button></td>
+    </tr>`;
+  }).join('');
+
+  // Render calendar reminders
+  renderCalendarReminders(d);
+}
+
+function _calNextDate(entry) {
+  // 优先使用服务端预计算的精确触发日期
+  if (entry.next_trigger_date) {
+    const timeStr = entry.time || '09:00';
+    return `${entry.next_trigger_date} ${timeStr}`;
+  }
+  // 降级：solar_date 客户端计算
+  const advDays = parseInt(entry.advance_days || 0);
+  const intentType = entry.type;
+  const timeStr = entry.time || '09:00';
+  if (intentType === 'holiday') {
+    const name = entry.name || '节日';
+    const adv = advDays > 0 ? `提前${advDays}天 ` : '';
+    return `${name} ${adv}${timeStr}`;
+  } else if (intentType === 'lunar_date') {
+    const lm = entry.lunar_month, ld = entry.lunar_day;
+    const adv = advDays > 0 ? `提前${advDays}天 ` : '';
+    return `农历${lm}月${ld}日 ${adv}${timeStr}`;
+  } else if (intentType === 'solar_date') {
+    const sm = entry.solar_month, sd = entry.solar_day;
+    const now = new Date();
+    const thisYear = now.getFullYear();
+    let target = new Date(thisYear, sm - 1, sd);
+    const remindDate = new Date(target.getTime() - advDays * 86400000);
+    if (remindDate < now) {
+      target = new Date(thisYear + 1, sm - 1, sd);
+    }
+    const triggerDate = new Date(target.getTime() - advDays * 86400000);
+    const dateStr = triggerDate.toLocaleDateString('zh-CN', { year: 'numeric', month: 'numeric', day: 'numeric' });
+    return `${dateStr} ${timeStr}`;
+  }
+  return '—';
+}
+
+function renderCalendarReminders(d) {
+  const reminders = d.calendar_reminders || [];
+  const tbody = document.getElementById('cal-reminders-body');
+  const empty = document.getElementById('cal-reminders-empty');
+  if (!tbody) return;
+  if (!reminders.length) { tbody.innerHTML = ''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  tbody.innerHTML = reminders.map(r => {
+    const msg = (r.message || '').substring(0, 60);
+    let typeCell;
+    if (r.type === 'holiday') {
+      const name = r.name || '节日';
+      const adv = parseInt(r.advance_days || 0);
+      typeCell = `<td><span style="color:#f4c430;font-weight:600">🏮 ${name}</span>${adv > 0 ? `<br><span style="font-size:11px;color:var(--muted)">提前${adv}天</span>` : ''}</td>`;
+    } else if (r.type === 'lunar_date') {
+      const lm = r.lunar_month, ld = r.lunar_day;
+      const adv = parseInt(r.advance_days || 0);
+      const lbl = r.label || `农历${lm}月${ld}日`;
+      typeCell = `<td><span style="color:#c8a4ff;font-weight:600">🌙 ${lbl}</span>${adv > 0 ? `<br><span style="font-size:11px;color:var(--muted)">提前${adv}天</span>` : ''}</td>`;
+    } else if (r.type === 'solar_date') {
+      const sm = r.solar_month, sd = r.solar_day;
+      const adv = parseInt(r.advance_days || 0);
+      const lbl = r.label || `每年${sm}月${sd}日`;
+      typeCell = `<td><span style="color:#f4a261;font-weight:600">☀️ ${lbl}</span>${adv > 0 ? `<br><span style="font-size:11px;color:var(--muted)">提前${adv}天</span>` : ''}</td>`;
+    } else {
+      typeCell = `<td>—</td>`;
+    }
+    const nextTrigger = _calNextDate(r);
+    const lastNotified = r.last_notified_date || '从未';
+    return `<tr>
+      <td>${msg}</td>
+      ${typeCell}
+      <td style="color:var(--muted);font-size:12px">${nextTrigger}</td>
+      <td style="color:var(--muted);font-size:12px">${lastNotified}</td>
+      <td><button class="btn-del" onclick="apiDelete('/api/ops/calendar-reminders/${r.id}', ()=>{})">取消</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderWatchlist(d) {
+  const list = d.watchlist || [];
+  const tbody = document.getElementById('watchlist-body');
+  const empty = document.getElementById('watchlist-empty');
+  if (!list.length) { tbody.innerHTML = ''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  tbody.innerHTML = list.map(w => {
+    const checked = w.last_checked_at && w.last_checked_at !== '1970-01-01T00:00:00+00:00'
+      ? new Date(w.last_checked_at).toLocaleString('zh-CN') : '从未';
+    return `<tr>
+      <td>${w.topic}</td>
+      <td class="mono">${w.query}</td>
+      <td>${w.interval_hours}h</td>
+      <td style="color:var(--muted);font-size:12px">${checked}</td>
+      <td><button class="btn-del" onclick="apiDelete('/api/ops/watchlist/${w.watch_id}', ()=>{})">删除</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderProcesses(d) {
+  const procs = d.processes || [];
+  const tbody = document.getElementById('proc-body');
+  const empty = document.getElementById('proc-empty');
+  if (!procs.length) { tbody.innerHTML = ''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  tbody.innerHTML = procs.map(p => `<tr>
+    <td class="mono">${p.pid}</td>
+    <td>${p.label}</td>
+    <td>${pill(p.state)}</td>
+    <td>${humanElapsed(p.elapsed_sec)}</td>
+    <td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.command}">${p.command}</td>
+    <td>${p.state === 'running' ? `<button class="btn-del" onclick="apiDelete('/api/ops/processes/${p.pid}', ()=>{})">终止</button>` : ''}</td>
+  </tr>`).join('');
+}
+
+function renderSessions(d) {
+  const sessions = d.sessions || [];
+  const tbody = document.getElementById('sessions-body');
+  const empty = document.getElementById('sessions-empty');
+  if (!sessions.length) { tbody.innerHTML = ''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  tbody.innerHTML = sessions.map(s => `<tr>
+    <td class="mono">${s.key}</td>
+    <td>${s.messages}</td>
+    <td style="color:var(--muted);font-size:12px">${formatTs(s.mtime)}</td>
+    <td><button class="btn-del" onclick="apiDelete('/api/ops/sessions/${encodeURIComponent(s.key)}', ()=>{})">清空</button></td>
+  </tr>`).join('');
+}
+
+function _auditEvtClass(evt) {
+  if (evt.includes('error')) return 'audit-evt-error';
+  if (evt === 'chat') return 'audit-evt-chat';
+  if (evt.startsWith('timer')) return 'audit-evt-timer';
+  if (evt === 'stt') return 'audit-evt-stt';
+  if (evt === 'tts' || evt === 'tts_stream') return 'audit-evt-tts';
+  return 'audit-evt-other';
+}
+
+function _auditDetail(e) {
+  // Summary line: priority fields, truncated for one-line display
+  const SKIP = new Set(['ts', 'event', 'channel']);
+  const PRIORITY = ['user', 'message', 'text', 'session', 'session_key', 'timer_id'];
+  const all = Object.entries(e).filter(([k]) => !SKIP.has(k));
+  const prio = PRIORITY.map(k => all.find(([ak]) => ak === k)).filter(Boolean);
+  const rest = all.filter(([k]) => !PRIORITY.includes(k));
+  return [...prio, ...rest]
+    .map(([k, v]) => {
+      const vs = typeof v === 'string' ? v.substring(0, 60) : String(v).substring(0, 40);
+      return `<span class="audit-kv-key">${k}=</span>${vs.replace(/</g,'&lt;').replace(/>/g,'&gt;')}`;
+    })
+    .join('<span style="color:var(--border)">  </span>');
+}
+
+function _auditExpand(e) {
+  // Full JSON, with long string fields expanded (not truncated)
+  const SKIP = new Set(['ts', 'event', 'channel']);
+  const PRIORITY = ['user', 'message', 'text', 'assistant', 'error', 'session', 'session_key', 'timer_id'];
+  const all = Object.entries(e).filter(([k]) => !SKIP.has(k));
+  const prio = PRIORITY.map(k => all.find(([ak]) => ak === k)).filter(Boolean);
+  const rest = all.filter(([k]) => !PRIORITY.includes(k));
+  return [...prio, ...rest]
+    .map(([k, v]) => {
+      const vs = typeof v === 'string'
+        ? v.replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        : JSON.stringify(v, null, 2).replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      return `<span class="audit-kv-key">${k}</span>: ${vs}`;
+    })
+    .join('\n');
+}
+
+let _auditOpen = new Set(); // persist open state across re-renders
+
+function toggleAuditItem(el) {
+  const id = el.dataset.auditId;
+  if (el.classList.toggle('open')) _auditOpen.add(id);
+  else _auditOpen.delete(id);
+}
+
+function renderAudit(d) {
+  const entries = d.audit || [];
+  _renderAuditEntries(entries, null);
+}
+
+function _renderAuditEntries(entries, total) {
+  const list = document.getElementById('audit-list');
+  const empty = document.getElementById('audit-empty');
+  const countEl = document.getElementById('audit-count');
+  if (countEl) {
+    if (total != null) countEl.textContent = `显示 ${entries.length} / ${total} 条`;
+    else if (entries.length) countEl.textContent = `${entries.length} 条`;
+    else countEl.textContent = '';
+  }
+  if (!entries.length) { list.innerHTML = ''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  list.innerHTML = entries.map(e => {
+    const ts = e.ts ? new Date(e.ts).toLocaleTimeString('zh-CN') : '—';
+    const evt = e.event || '';
+    const evtCls = _auditEvtClass(evt);
+    const isError = evtCls === 'audit-evt-error';
+    const detail = _auditDetail(e);
+    const expand = _auditExpand(e);
+    const auditId = (e.ts || '') + '|' + (e.event || '') + '|' + (e.timer_id || e.session || '');
+    const isOpen = _auditOpen.has(auditId);
+    return `<div class="audit-item${isOpen ? ' open' : ''}" data-audit-id="${auditId}" style="${isError ? 'background:rgba(248,113,113,.05)' : ''}" onclick="toggleAuditItem(this)">
+      <div class="audit-item-row">
+        <span class="audit-ts">${ts}</span>
+        <span class="audit-evt ${evtCls}">${evt}</span>
+        <span class="audit-detail">${detail}</span>
+      </div>
+      <div class="audit-expand">${expand}</div>
+    </div>`;
+  }).join('');
+}
+
+async function loadAudit() {
+  const date = document.getElementById('audit-date-picker')?.value || '';
+  const url = '/api/audit' + (date ? '?date=' + date : '');
+  try {
+    const r = await fetch(url);
+    const j = await r.json();
+    const entries = (j.entries || []).reverse(); // newest first
+    _renderAuditEntries(entries, j.count);
+  } catch(e) {
+    document.getElementById('audit-count').textContent = '加载失败';
+  }
+}
+
+async function loadAuditDates() {
+  try {
+    const r = await fetch('/api/audit/dates');
+    if (!r.ok) return;
+    const j = await r.json();
+    const picker = document.getElementById('audit-date-picker');
+    const existing = new Set([...picker.options].map(o => o.value));
+    (j.dates || []).forEach(d => {
+      if (!existing.has(d)) {
+        const opt = document.createElement('option');
+        opt.value = d; opt.textContent = d;
+        picker.appendChild(opt);
+      }
+    });
+  } catch(_) {}
+}
+
+// ── Traces ─────────────────────────────────────────────────────
+let _tracesOpen = new Set(); // persist open state across re-renders
+
+async function loadTraceDates() {
+  try {
+    const r = await fetch('/api/ops/traces/dates');
+    const j = await r.json();
+    const picker = document.getElementById('traces-date-picker');
+    const currentVal = picker.value;
+    // Rebuild options: keep "今日" + archived dates
+    picker.innerHTML = '<option value="">今日（实时）</option>';
+    for (const d of (j.dates || [])) {
+      const today = new Date().toISOString().slice(0, 10);
+      if (d === today) continue; // today already covered by "今日"
+      const opt = document.createElement('option');
+      opt.value = d;
+      opt.textContent = d;
+      picker.appendChild(opt);
+    }
+    picker.value = currentVal; // restore selection if still valid
+  } catch(e) { /* silent */ }
+}
+
+async function loadTraces() {
+  const date = document.getElementById('traces-date-picker').value || null;
+  const url = '/api/ops/traces?limit=200' + (date ? '&date=' + date : '');
+  try {
+    const r = await fetch(url);
+    const j = await r.json();
+    _traces = j.traces || [];
+    _tracesOpen = new Set(); // reset open state when switching dates
+    renderTraces();
+  } catch(e) {
+    console.error('traces fetch error', e);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('traces-date-picker').addEventListener('change', () => {
+    loadTraces();
+  });
+  // Initial fetch
+  fetchData();
+});
+
+function renderTraces() {
+  const tbody = document.getElementById('traces-body');
+  const empty = document.getElementById('traces-empty');
+  if (!_traces.length) { tbody.innerHTML = ''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+
+  // Save content of currently open rows so we don't re-fetch them
+  const savedContent = {};
+  for (const id of _tracesOpen) {
+    const el = document.getElementById('trace-body-' + id);
+    if (el && !el.querySelector('[data-loading]')) savedContent[id] = el.innerHTML;
+  }
+
+  tbody.innerHTML = _traces.map((t) => {
+    const ts = t.ts ? new Date(t.ts).toLocaleTimeString('zh-CN') : '—';
+    const session = (t.session_key || '').replace('fengling-', '').substring(0, 8);
+    const user = (t.user || '').substring(0, 40);
+    const statusCls = t.status === 'done' ? 'pill-done' : t.status === 'error' ? 'pill-error' : 'pill-running';
+    const ms = t.total_ms > 0 ? (t.total_ms / 1000).toFixed(1) + 's' : '—';
+    const steps = t.steps_count || 0;
+    const reply = (t.reply || t.error || '').substring(0, 50);
+    const isOpen = _tracesOpen.has(t.id);
+    return `<tr class="trace-row ${isOpen ? 'open' : ''}" onclick="toggleTrace('${t.id}', this)">
+      <td class="mono" style="white-space:nowrap;font-size:11px">${ts}</td>
+      <td class="mono" style="color:var(--muted);font-size:11px">${session}</td>
+      <td>${user}</td>
+      <td><span class="pill ${statusCls}">${t.status}</span></td>
+      <td style="color:var(--muted)">${ms}</td>
+      <td style="text-align:center;color:var(--muted)">${steps}</td>
+      <td style="color:var(--muted);font-size:12px">${reply}</td>
+    </tr>
+    <tr id="trace-detail-${t.id}" style="display:${isOpen ? '' : 'none'}">
+      <td colspan="7" style="padding:0">
+        <div class="trace-detail open" id="trace-body-${t.id}">
+          ${savedContent[t.id] || '<div data-loading style="color:var(--muted);font-size:12px">加载中…</div>'}
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Re-fetch content for open rows that had no saved content (e.g. first open)
+  for (const id of _tracesOpen) {
+    const body = document.getElementById('trace-body-' + id);
+    if (body && body.querySelector('[data-loading]')) {
+      _fetchTraceDetail(id);
+    }
+  }
+}
+
+async function _fetchTraceDetail(id) {
+  const body = document.getElementById('trace-body-' + id);
+  if (!body) return;
+  try {
+    const r = await fetch('/api/ops/traces/' + id);
+    const t = await r.json();
+    if (t.error) { body.innerHTML = `<div style="color:var(--red)">${t.error}</div>`; return; }
+    const steps = t.steps || [];
+    if (!steps.length) { body.innerHTML = '<div style="color:var(--muted);font-size:12px">无工具调用，直接回复</div>'; return; }
+    body.innerHTML = `<ul class="step-list">${steps.map(s => {
+      if (s.type === 'llm') {
+        const calls = (s.tool_calls || []).join(', ');
+        return `<li class="step-llm">
+          <span class="step-tag step-tag-llm">LLM</span>
+          第 ${s.round} 轮 · ${s.ms}ms
+          ${calls ? ' → 调用: <strong>' + calls + '</strong>' : ' → 直接回复 (' + (s.reply_chars || 0) + ' chars)'}
+        </li>`;
+      } else {
+        const argsStr = s.args ? JSON.stringify(s.args, null, 2) : '';
+        const resultStr = s.result || '';
+        return `<li class="step-tool">
+          <span class="step-tag step-tag-tool">TOOL</span>
+          <strong>${s.name}</strong> · ${s.ms}ms · ${s.result_chars || 0} chars
+          ${argsStr ? '<div class="step-args">' + escHtml(argsStr) + '</div>' : ''}
+          ${resultStr ? '<div class="step-result">' + escHtml(resultStr) + '</div>' : ''}
+        </li>`;
+      }
+    }).join('')}</ul>`;
+  } catch(e) {
+    body.innerHTML = `<div style="color:var(--red)">加载失败: ${e}</div>`;
+  }
+}
+
+async function toggleTrace(id, row) {
+  const detailRow = document.getElementById('trace-detail-' + id);
+  const body = document.getElementById('trace-body-' + id);
+  if (detailRow.style.display === 'none') {
+    detailRow.style.display = '';
+    body.classList.add('open');
+    _tracesOpen.add(id);
+    await _fetchTraceDetail(id);
+  } else {
+    detailRow.style.display = 'none';
+    _tracesOpen.delete(id);
+  }
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+async function loadMemory() {
+  const sectionsEl = document.getElementById('memory-sections');
+  const dailyEl = document.getElementById('memory-daily');
+  const emptyEl = document.getElementById('memory-empty');
+  try {
+    const r = await fetch('/api/ops/memory');
+    const d = await r.json();
+    if (!d.sections?.length && !d.logs?.length) {
+      sectionsEl.innerHTML = '';
+      dailyEl.innerHTML = '';
+      emptyEl.classList.remove('hidden');
+      return;
+    }
+    emptyEl.classList.add('hidden');
+    sectionsEl.innerHTML = (d.sections || []).map(s => `
+      <div class="card">
+        <div class="mem-section-title">${s.title}</div>
+        <div>${(s.items || []).map(item => `<div class="mem-item">${item}</div>`).join('')}</div>
+      </div>
+    `).join('');
+    dailyEl.innerHTML = (d.logs || []).map(log => `
+      <div class="daily-log">
+        <div class="daily-log-date">${log.date}</div>
+        <div class="daily-log-content">${log.content}</div>
+      </div>
+    `).join('');
+  } catch(e) {
+    sectionsEl.innerHTML = `<div class="card"><div class="empty">加载失败: ${e.message}</div></div>`;
+  }
+}
+
+async function loadProduct() {
+  try {
+    const r = await fetch('/api/ops/product');
+    const d = await r.json();
+    document.getElementById('product-model').textContent = '底层模型：' + (d.model || '—');
+    document.getElementById('product-focus').innerHTML = (d.focus || []).map(f => `<div class="focus-item">${f}</div>`).join('') || '<div class="empty">暂无重点项</div>';
+    document.getElementById('product-capabilities').innerHTML = `<div class="card caps-body">${marked.parse(d.capabilities || '')}</div>`;
+    document.getElementById('product-skills').innerHTML = (d.skills || []).map(s => `
+      <div class="skill-card ${s.always_on ? 'always-on' : ''}">
+        <div class="skill-name">${s.name} ${s.always_on ? '<span class="skill-always">Always-on</span>' : ''}</div>
+        <div class="skill-desc">${s.description}</div>
+        <div class="skill-keywords">${(s.keywords || []).map(k => `<span class="kw">${k}</span>`).join('')}</div>
+      </div>
+    `).join('');
+    document.getElementById('product-recent').innerHTML = (d.recent || []).map(r => `
+      <div class="progress-item">
+        <span class="mono" style="color:var(--muted);flex-shrink:0">${r.date}</span>
+        <span>${r.content}</span>
+      </div>
+    `).join('') || '<div class="empty">暂无近期记录</div>';
+    document.getElementById('product-goals').innerHTML = `<div class="card caps-body">${marked.parse(d.goals || '')}</div>`;
+  } catch(e) {
+    document.getElementById('product-focus').innerHTML = `<div class="empty">加载失败: ${e.message}</div>`;
+  }
+}
+
+async function loadTasksPanel() {
+  const treeEl = document.getElementById('tasks-tree');
+  const emptyEl = document.getElementById('tasks-empty');
+  const hintEl = document.getElementById('tasks-neo4j-hint');
+  try {
+    const r = await fetch('/api/tasks/tree');
+    if (!r.ok) {
+        if (r.status === 503) {
+            treeEl.innerHTML = '';
+            emptyEl.classList.remove('hidden');
+            hintEl.textContent = '任务数据库离线';
+            return;
+        }
+        throw new Error('HTTP ' + r.status);
+    }
+    const d = await r.json();
+    hintEl.textContent = '任务数据库已连接';
+    if (!d.tasks || d.tasks.length === 0) {
+      treeEl.innerHTML = '';
+      emptyEl.classList.remove('hidden');
+      return;
+    }
+    emptyEl.classList.add('hidden');
+    treeEl.innerHTML = renderTaskNodes(d.tasks);
+  } catch(e) {
+    hintEl.textContent = '加载失败: ' + e.message;
+  }
+}
+
+function renderTaskNodes(tasks) {
+  return tasks.map(t => {
+    const hasChildren = t.children && t.children.length > 0;
+    const statusIcon = getTaskStatusIcon(t.status);
+    return `
+      <div class="tree-node" data-id="${t.id}">
+        <div class="task-row" onclick="toggleTaskNode(this)">
+          <span class="toggle-arrow ${hasChildren ? '' : 'placeholder'}">▶</span>
+          <span class="status-icon ${t.status}">${statusIcon}</span>
+          <span class="task-title">${t.title}</span>
+          <span class="state-badge ${t.status}">${t.status}</span>
+        </div>
+        ${hasChildren ? `<div class="tree-children collapsed">${renderTaskNodes(t.children)}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+function getTaskStatusIcon(s) {
+  switch(s) {
+    case 'running': return '●';
+    case 'completed': return '✓';
+    case 'failed': return '✗';
+    case 'waiting': return '⌛';
+    default: return '○';
+  }
+}
+
+function toggleTaskNode(row) {
+  const node = row.parentElement;
+  const arrow = row.querySelector('.toggle-arrow');
+  const children = node.querySelector('.tree-children');
+  if (children) {
+    const isCollapsed = children.classList.toggle('collapsed');
+    arrow.classList.toggle('expanded', !isCollapsed);
+  }
+}
+
+async function loadMethodologyPanel() {
+  const featuresEl = document.getElementById('methodology-features');
+  const emptyEl = document.getElementById('methodology-empty');
+  const hintEl = document.getElementById('methodology-hint');
+  try {
+    featuresEl.innerHTML = '<div class="empty">开发中...</div>';
+  } catch(e) {
+    hintEl.textContent = '加载失败';
+  }
+}
+</script>
+</body>
+</html>

@@ -29,11 +29,30 @@ dblpcli
 s2cli
 papis
 
+# ── 系统监控 ──────────────────────────────────────
+psutil
+
+# ── 文档语义搜索 (RAG) ────────────────────────────
+llama-index-core
+llama-index-embeddings-openai
+
 # ── Web / GUI 自动化 ─────────────────────────
-playwright
+# playwright  (uncomment when needed)
+
+# ── Web Push 通知 ─────────────────────────────
+pywebpush
+
+# ── Markdown → TTS 纯文本 ─────────────────────
+mistune
+
+# ── 定时与周期调度 ─────────────────────────────
+croniter
 
 # ── 日历 / 通讯录 / 智能家居 ─────────────────
 khal
 vdirsyncer
 khard
 homeassistant-cli
+
+# ── 农历转换（CalendarChecker 用） ────────────
+lunardate

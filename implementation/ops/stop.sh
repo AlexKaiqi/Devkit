@@ -10,8 +10,9 @@ echo "停止服务..."
 VOICE_CHAT_PORT="${VOICE_CHAT_PORT:-3001}"
 STT_PROXY_PORT="${STT_PROXY_PORT:-8787}"
 TIMER_API_PORT="${TIMER_API_PORT:-8789}"
+CLAUDE_CODE_PROXY_PORT="${CLAUDE_CODE_PROXY_PORT:-9999}"
 
-for port in "$VOICE_CHAT_PORT" "$STT_PROXY_PORT" "$TIMER_API_PORT"; do
+for port in "$VOICE_CHAT_PORT" "$STT_PROXY_PORT" "$TIMER_API_PORT" "$CLAUDE_CODE_PROXY_PORT"; do
   pids=$(lsof -t -i ":$port" 2>/dev/null || true)
   if [ -n "$pids" ]; then
     echo "$pids" | xargs kill -9 2>/dev/null || true

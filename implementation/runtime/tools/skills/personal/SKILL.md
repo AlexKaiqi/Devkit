@@ -1,7 +1,7 @@
 ---
 name: personal
 always: false
-keywords: [联系人, 日历, 日程, 生日, 通讯录, contacts, schedule, 约, 会议, 安排, 明天, 今天, 本周, 下周, 时间]
+keywords: [联系人, 日历, 日程, 生日, 通讯录, contacts, schedule, 约, 会议, 安排, 明天, 今天, 本周, 下周, 时间, 提前, 上次, 最近, 之前, 后天, 大后天, 下下周, 月底, 月初, 几点, 什么时候]
 ---
 # Personal Skill
 
