@@ -122,13 +122,44 @@ fi
 json_kv "venv" "{$(quote exists):$venv_exists,$(quote python):$(quote "$venv_python")}"
 $JSON_MODE || echo ""
 
+check_http() {
+  local url="$1" name="$2"
+  local http_code
+  http_code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$url" 2>/dev/null || echo "000")
+  if [[ "$http_code" =~ ^2 ]]; then
+    $JSON_MODE || echo "  ✓ $name (HTTP $http_code)" >&2
+    echo "healthy"
+  elif [[ "$http_code" == "000" ]]; then
+    $JSON_MODE || echo "  ✗ $name (连接失败)" >&2
+    echo "unreachable"
+  else
+    $JSON_MODE || echo "  ⚠ $name (HTTP $http_code)" >&2
+    echo "unhealthy"
+  fi
+}
+
 $JSON_MODE || echo "=== 服务状态 ==="
-svc_searxng=$(check_docker_container searxng)
+svc_searxng_container=$(check_docker_container searxng)
+svc_searxng_health="skipped"
+if [[ "$svc_searxng_container" == "running" ]]; then
+  SEARXNG_PORT="${SEARXNG_PORT:-8080}"
+  svc_searxng_health=$(check_http "http://localhost:$SEARXNG_PORT/healthz" "SearXNG API")
+  # 额外测试一次实际搜索能力
+  search_test=$(curl -s --max-time 8 "http://localhost:$SEARXNG_PORT/search?q=test&format=json" 2>/dev/null | head -c 20 || echo "")
+  if [[ "$search_test" == *"results"* ]] || [[ "$search_test" == *"{"* ]]; then
+    $JSON_MODE || echo "  ✓ SearXNG 搜索功能正常" >&2
+  else
+    $JSON_MODE || echo "  ⚠ SearXNG 搜索功能异常（可能是出站网络问题）" >&2
+    svc_searxng_health="degraded"
+  fi
+fi
+svc_searxng="${svc_searxng_container}:${svc_searxng_health}"
 svc_neo4j=$(check_docker_container devkit-neo4j)
 svc_stt=$(check_port "${STT_PROXY_PORT:-8787}" "豆包 STT 代理")
 svc_voice=$(check_port "${VOICE_CHAT_PORT:-3001}" "风铃")
 svc_timer=$(check_port "${TIMER_API_PORT:-8789}" "Timer API")
-json_kv "services" "{$(quote searxng):$(quote "$svc_searxng"),$(quote neo4j):$(quote "$svc_neo4j"),$(quote stt):$(quote "$svc_stt"),$(quote fengling):$(quote "$svc_voice"),$(quote timer_api):$(quote "$svc_timer")}"
+svc_proxy=$(check_port "${CLAUDE_CODE_PROXY_PORT:-9999}" "Claude Code Proxy")
+json_kv "services" "{$(quote searxng):$(quote "$svc_searxng"),$(quote neo4j):$(quote "$svc_neo4j"),$(quote stt):$(quote "$svc_stt"),$(quote fengling):$(quote "$svc_voice"),$(quote timer_api):$(quote "$svc_timer"),$(quote proxy):$(quote "$svc_proxy")}"
 $JSON_MODE || echo ""
 
 ready=true

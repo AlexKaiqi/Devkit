@@ -765,6 +765,8 @@ async def ops_status():
         _ping("stt_proxy", f"http://localhost:{os.environ.get('STT_PROXY_PORT', '8787')}/health"),
         _ping("timer_api", f"http://localhost:{os.environ.get('TIMER_API_PORT', '8789')}/health"),
         _ping("openrouter-proxy", f"http://localhost:{os.environ.get('CLAUDE_CODE_PROXY_PORT', '9999')}/v1/models"),
+        _ping("searxng", f"http://localhost:{os.environ.get('SEARXNG_PORT', '8080')}/healthz"),
+        _ping("neo4j", f"http://localhost:{os.environ.get('NEO4J_HTTP_PORT', '7474')}"),
         return_exceptions=True,
     )
     services["fengling"] = "ok"  # 自身肯定在线

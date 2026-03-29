@@ -17,7 +17,6 @@ STT_PORT="${STT_PROXY_PORT:-8787}"
 VOICE_PORT="${VOICE_CHAT_PORT:-3001}"
 TIMER_API_PORT="${TIMER_API_PORT:-8789}"
 SEARXNG_PORT=8080
-TUNNEL_LOG="/tmp/cloudflared.log"
 NEO4J_BOLT_PORT="${NEO4J_BOLT_PORT:-7687}"
 NEO4J_HTTP_PORT="${NEO4J_HTTP_PORT:-7474}"
 
@@ -46,8 +45,15 @@ if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
   else
     echo "  启动 SearXNG..."
     docker compose -f "$REPO_ROOT/docker-compose.yml" up -d searxng > /dev/null 2>&1
-    sleep 3
-    docker ps --format '{{.Names}}' | grep -q '^searxng$' && echo "  ✓ SearXNG (:$SEARXNG_PORT)" || echo "  ✗ SearXNG 启动失败"
+    # 等待 HTTP 可达，而非仅检查容器存在
+    for i in $(seq 1 10); do
+      if curl -s -o /dev/null --max-time 2 "http://localhost:$SEARXNG_PORT/healthz" 2>/dev/null; then
+        echo "  ✓ SearXNG (:$SEARXNG_PORT)"
+        break
+      fi
+      sleep 1
+      [ "$i" -eq 10 ] && echo "  ⚠ SearXNG 容器已启动但 HTTP 未就绪，稍后可用 ./check.sh 确认"
+    done
   fi
 else
   echo "  - Docker 未安装或未运行，跳过 SearXNG"
@@ -129,34 +135,7 @@ else
   echo "  - Telegram Bot 未配置（TELEGRAM_BOT_TOKEN 为空）"
 fi
 
-if pgrep -f "cloudflared.*tunnel" &>/dev/null; then
-  echo "  ✓ Cloudflare Tunnel 已在运行"
-elif command -v cloudflared &>/dev/null; then
-  echo "  启动 Cloudflare Tunnel..."
-  nohup cloudflared tunnel --url "http://localhost:$VOICE_PORT" --no-autoupdate > "$TUNNEL_LOG" 2>&1 &
-  sleep 5
-  TUNNEL_URL=$("$PYTHON_BIN" - <<'EOF'
-from pathlib import Path
-import re
-text = Path('/tmp/cloudflared.log').read_text(encoding='utf-8', errors='ignore') if Path('/tmp/cloudflared.log').exists() else ''
-urls = re.findall(r'https://[a-z0-9-]+\.trycloudflare\.com', text)
-print(urls[-1] if urls else '')
-EOF
-)
-  [ -n "$TUNNEL_URL" ] && echo "  ✓ Cloudflare Tunnel" || echo "  ! Tunnel 启动中，稍后查看 $TUNNEL_LOG"
-else
-  echo "  - cloudflared 未安装，跳过 Tunnel（brew install cloudflared）"
-fi
-
 LAN_IP=$(ifconfig 2>/dev/null | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | head -1)
-TUNNEL_URL=$("$PYTHON_BIN" - <<'EOF'
-from pathlib import Path
-import re
-text = Path('/tmp/cloudflared.log').read_text(encoding='utf-8', errors='ignore') if Path('/tmp/cloudflared.log').exists() else ''
-urls = re.findall(r'https://[a-z0-9-]+\.trycloudflare\.com', text)
-print(urls[-1] if urls else '')
-EOF
-)
 
 echo ""
 echo "=== 所有服务已启动 ==="
@@ -169,18 +148,12 @@ echo "  🎐 风铃:   http://localhost:$VOICE_PORT"
 echo "  Timer API: http://localhost:$TIMER_API_PORT/health"
 echo "  Agent:     model=${AGENT_MODEL:-gemini-3.1-pro-preview}"
 [ -n "$LAN_IP" ] && echo "  局域网:    http://$LAN_IP:$VOICE_PORT"
-if [ -n "${TUNNEL_URL:-}" ]; then
-  echo ""
-  echo "  📱 移动端:  $TUNNEL_URL"
-  echo "             (HTTPS, 跨网络, 支持语音)"
-fi
 echo ""
 echo "  日志:"
 echo "    tail -f /tmp/claude-proxy.log"
 echo "    tail -f /tmp/doubao-stt-proxy.log"
 echo "    tail -f /tmp/voice-chat.log"
 echo "    tail -f /tmp/telegram-bot.log"
-echo "    tail -f /tmp/cloudflared.log"
 echo ""
 echo "  停止: ./stop.sh"
 echo ""

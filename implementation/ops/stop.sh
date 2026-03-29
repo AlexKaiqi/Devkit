@@ -26,12 +26,6 @@ if [ -n "$tg_pids" ]; then
   echo "  ✓ 已停止 Telegram Bot"
 fi
 
-cf_pids=$(pgrep -f "cloudflared.*tunnel" 2>/dev/null || true)
-if [ -n "$cf_pids" ]; then
-  echo "$cf_pids" | xargs kill 2>/dev/null || true
-  echo "  ✓ 已停止 cloudflared"
-fi
-
 if command -v docker &>/dev/null && docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^searxng$'; then
   docker compose -f "$REPO_ROOT/docker-compose.yml" stop searxng > /dev/null 2>&1
   echo "  ✓ 已停止 SearXNG"

@@ -6,6 +6,17 @@ services:
       - "8080:8080"
     volumes:
       - ./implementation/services/search/settings.yml:/etc/searxng/settings.yml:ro
+    dns:
+      - 223.5.5.5
+      - 8.8.8.8
+    environment:
+      - SEARXNG_SECRET=devkit-searxng-2026
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
 
   devkit:

@@ -280,7 +280,7 @@
     <div class="panel active" id="panel-overview">
       <section>
         <h2>能力状态</h2>
-        <div class="grid grid-4" id="svc-cards"></div>
+        <div class="grid grid-3" id="svc-cards"></div>
       </section>
       <section>
         <h2>系统资源</h2>
@@ -607,7 +607,9 @@ function renderOverview(d) {
     fengling: '🎐 核心系统',
     stt_proxy: '🎤 语音交互',
     timer_api: '⏰ 定时与通知',
-    'openrouter-proxy': '💻 编码能力'
+    'openrouter-proxy': '💻 编码能力',
+    searxng: '🔍 网络搜索',
+    neo4j: '🗄 图数据库'
   };
   document.getElementById('svc-cards').innerHTML =
     Object.entries(svcNames).map(([k, label]) => {
@@ -637,7 +639,9 @@ function renderServices(d) {
     fengling: '🎐 核心系统 — 风铃主服务',
     stt_proxy: '🎤 语音交互 — 语音识别与合成',
     timer_api: '⏰ 定时与通知 — 提醒服务',
-    'openrouter-proxy': '💻 编码能力 — 模型代理'
+    'openrouter-proxy': '💻 编码能力 — 模型代理',
+    searxng: '🔍 网络搜索 — SearXNG (Docker)',
+    neo4j: '🗄 图数据库 — Neo4j (Docker)'
   };
   document.getElementById('svc-list').innerHTML =
     Object.entries(svcNames).map(([k, label]) => {

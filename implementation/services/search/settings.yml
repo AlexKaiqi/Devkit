@@ -4,7 +4,78 @@ search:
   formats:
     - html
     - json
+  # 缩短请求超时，避免慢引擎拖累整体
+  request_timeout: 5.0
+  max_request_timeout: 10.0
 
 server:
-  secret_key: "change-me-in-production"
+  secret_key: "devkit-searxng-2026"
   limiter: false
+  # 绑定所有接口（容器内需要）
+  bind_address: "0.0.0.0"
+  port: 8080
+
+# 出站请求配置
+outgoing:
+  # 请求超时
+  request_timeout: 5.0
+  # 最大重定向
+  max_redirects: 3
+  # 并发池大小
+  pool_connections: 100
+  pool_maxsize: 20
+  # 如果有代理可在此配置
+  # proxies:
+  #   all://:
+  #     - socks5h://127.0.0.1:1080
+
+# 只启用稳定可靠的搜索引擎
+engines:
+  # ── 通用搜索 ──
+  - name: google
+    engine: google
+    shortcut: g
+    disabled: false
+
+  - name: bing
+    engine: bing
+    shortcut: b
+    disabled: false
+
+  - name: duckduckgo
+    engine: duckduckgo
+    shortcut: ddg
+    disabled: false
+
+  # ── 禁用不稳定或不必要的引擎 ──
+  - name: yahoo
+    engine: yahoo
+    disabled: true
+
+  - name: qwant
+    engine: qwant
+    disabled: true
+
+  - name: startpage
+    engine: startpage
+    disabled: true
+
+  - name: brave
+    engine: brave
+    disabled: true
+
+  # ── IT / 开发 ──
+  - name: github
+    engine: github
+    shortcut: gh
+    disabled: false
+
+  - name: stackoverflow
+    engine: stackoverflow
+    shortcut: so
+    disabled: false
+
+  - name: wikipedia
+    engine: wikipedia
+    shortcut: wp
+    disabled: false
