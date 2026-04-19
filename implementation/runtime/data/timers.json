@@ -1,0 +1,1 @@
+[{"id": "c455ccad-3611-4cb7-887c-f14777816761", "session_key": "fengling-69833d34", "fire_at": 1776556800.0010333, "payload": {"message": "周日钓鱼时间到啦！主人记得去钓鱼哦～"}, "type": "cron", "intent": {"type": "recurring", "human": "0 8 * * 0"}, "cron_expr": "0 8 * * 0", "label": "0 8 * * 0"}]

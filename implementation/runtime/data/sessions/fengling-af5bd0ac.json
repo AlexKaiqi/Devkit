@@ -1,0 +1,10 @@
+[
+  {
+    "role": "user",
+    "content": "阳历和农历情人节都提前一周通知我准备礼物"
+  },
+  {
+    "role": "assistant",
+    "content": "主人，我已经为您设置好了阳历和农历情人节的礼物提醒：\n\n**阳历情人节（2月14日）**\n- 提前7天，也就是每年2月7日21:00提醒您准备礼物\n\n**农历情人节（七夕节）**\n- 提前7天，在农历七月初一9:00提醒您准备礼物（因为七夕是农历七月初七）\n\n这两个提醒都会通过 Telegram 和 Web Push 双渠道通知您。\n\n[ACTION:remind solar=\"2-14\" advance_days=7 time=\"21:00\" message=\"准备阳历情人节（2月14日）礼物\"]\n[ACTION:remind holiday=\"七夕节\" advance_days=7 time=\"09:00\" message=\"准备农历情人节（七夕节）礼物\"]"
+  }
+]
